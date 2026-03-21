@@ -33,8 +33,8 @@ AI Agents (n8n / Zapier)
 | Module     | Owner             | Status         |
 | ---------- | ----------------- | -------------- |
 | AUTH & DB  | Mfurlan03         | ✅ Complete    |
-| GATE       | Mfurlan03         | 🔄 In progress |
-| AGENTS     | Sami Malek        | 🔄 In progress |
+| GATE       | Mfurlan03         | ✅ Complete  |
+| AGENTS     | Sami Malek        | ✅ Complete  |
 | MONITORING | Shalini S K       | ✅ Complete   |
 | DEPLOYMENT | Didn't define yet | ⏸️ Pending   |
 
