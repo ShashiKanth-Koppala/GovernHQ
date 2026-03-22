@@ -162,3 +162,46 @@ Assumed policies table columns (no migration exists in repo):
 `id, name, owner_id, created_at`
 No `public.users` table — auth handled entirely by `auth.users`.
 RLS pattern: `organization_id in (select id from organizations where owner_id = auth.uid())`
+
+---
+
+## SDK LAYER (added 2026-03-21)
+
+### New files
+
+- `backend/sdk/__init__.py` — empty module stub
+- `backend/sdk/interceptor.py` — server-side tool interceptor
+- `backend/core/ratelimit.py` — per-org sliding-window rate limiter
+
+### Gate schema extensions
+
+`GateEvaluateRequest` now has:
+
+- `tool_name: Optional[str]` — tool being called (from SDK branch PR #10)
+- `arguments: Optional[dict]` — call arguments (from SDK branch PR #10)
+
+`GateEvaluateResponse` now has:
+
+- `agent_info: dict` — name/status/risk_profile fetched from agents table
+
+### Rate limiting
+
+`backend/core/ratelimit.py` — `check_rate_limit(org_id) -> bool`
+Max 100 calls per 60-second sliding window, per org.
+In-process dict; resets on server restart (MVP only).
+`gate/router.py` returns 429 if limit exceeded.
+
+### Interceptor
+
+`GovernHQInterceptor(org_id, agent_id)` — wraps Python callables.
+Calls `evaluate_intent()` directly (no HTTP). Logs via `log_gate_execution()`.
+`GovernHQBlockedError` raised on block. Pause = logged, tool still runs.
+`.wrap(fn)` imperative API; `.govern_tool()` decorator API.
+
+### What was rejected from PR #10 (feature/governance-layer)
+
+- `/govern/evaluate` endpoint — duplicate of `/gate/evaluate`, causes double-logging
+- `govern/service.py` — uses wrong policy schema (`keywords` vs `condition`)
+- `python-dotenv` import in `main.py` — already handled via `--env-file`
+- SDK branch's `main.py` — removes CORS and monitoring/webhooks routers
+- "flag" decision literal — banned; must be "pause" everywhere
