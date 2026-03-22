@@ -259,11 +259,9 @@ export function Sidebar({ activePage = 'overview' }: SidebarProps) {
           <div className={`absolute left-[16px] top-[15px] overflow-clip size-[30px] ${activePage !== 'settings' ? 'group-hover:scale-110 transition-transform' : ''}`}>
             <div className="absolute inset-[8.41%_12.68%]">
               <div className="absolute inset-[-5.01%_-5.58%]">
-                <svg className="block size-full drop-shadow-[0_0_8px_rgba(99,102,241,0.3)]" fill="none" preserveAspectRatio="none" viewBox="0 0 24.8909 27.4552">
-                  <g id="Group">
-                    <path d={ledgerSvgPaths.p127e9980} id="Vector" stroke={activePage === 'settings' ? 'white' : '#64748b'} strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" className={activePage !== 'settings' ? 'group-hover:stroke-[#94a3b8] transition-colors' : ''} />
-                    <path d={ledgerSvgPaths.p25127a00} id="Vector_2" stroke={activePage === 'settings' ? 'white' : '#64748b'} strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" className={activePage !== 'settings' ? 'group-hover:stroke-[#94a3b8] transition-colors' : ''} />
-                  </g>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={activePage === 'settings' ? 'white' : '#64748b'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`size-full ${activePage !== 'settings' ? 'group-hover:stroke-[#94a3b8] transition-colors' : ''}`}>
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                  <circle cx="12" cy="12" r="3" />
                 </svg>
               </div>
             </div>
@@ -275,10 +273,10 @@ export function Sidebar({ activePage = 'overview' }: SidebarProps) {
           <div className="absolute flex items-center justify-center left-[15px] size-[30px] top-[15px] group-hover:scale-110 transition-transform cursor-pointer">
             <div className="-scale-y-100 flex-none rotate-180">
               <div className="size-[30px]">
-                <svg className="absolute block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 30 30">
-                  <g id="heroicons-outline:logout">
-                    <path d={ledgerSvgPaths.p3f162c00} id="Vector" stroke="#64748b" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" className="group-hover:stroke-[#ef4444] transition-colors" />
-                  </g>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-full group-hover:stroke-[#ef4444] transition-colors">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
                 </svg>
               </div>
             </div>
@@ -288,16 +286,10 @@ export function Sidebar({ activePage = 'overview' }: SidebarProps) {
         {/* Bottom Help Icon */}
         <div className="absolute left-[21px] rounded-[12px] size-[60px] top-[910px] bg-[#1e293b]/30 border border-[#334155]/30 backdrop-blur-sm group hover:bg-[#1e293b]/50 hover:border-[#3b82f6]/30 transition-all cursor-pointer" />
         <div className="absolute left-[36px] top-[925px] size-[30px] group-hover:scale-110 transition-transform cursor-pointer">
-          <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 30 30">
-            <g clipPath="url(#clip0_1_470)" id="Frame">
-              <g id="Vector" />
-              <path d={ledgerSvgPaths.p1b95bf00} fill="#64748b" id="Vector_2" className="group-hover:fill-[#94a3b8] transition-colors" />
-            </g>
-            <defs>
-              <clipPath id="clip0_1_470">
-                <rect fill="white" height="30" width="30" />
-              </clipPath>
-            </defs>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-full group-hover:stroke-[#94a3b8] transition-colors">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
         </div>
       </div>
