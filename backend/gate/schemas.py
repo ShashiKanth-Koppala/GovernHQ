@@ -20,3 +20,4 @@ class GateEvaluateResponse(BaseModel):
     reason: str
     policy_matches: list[str] = Field(default_factory=list)
     agent_info: dict[str, Any] = Field(default_factory=dict)
+    trace_id: Optional[str] = None

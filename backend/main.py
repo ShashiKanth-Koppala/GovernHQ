@@ -5,6 +5,7 @@ from backend.agents.router import router as agents_router, _AuthError
 from backend.core.auth import AuthError
 from backend.gate.router import router as gate_router
 from backend.monitoring.router import router as monitoring_router
+from backend.settings.router import router as settings_router
 from backend.webhooks.router import router as webhooks_router
 
 app = FastAPI(title="GovernHQ Backend")
@@ -19,6 +20,7 @@ app.add_middleware(
 app.include_router(agents_router)
 app.include_router(gate_router)
 app.include_router(monitoring_router)
+app.include_router(settings_router)
 app.include_router(webhooks_router)
 
 

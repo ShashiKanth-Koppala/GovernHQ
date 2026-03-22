@@ -5,6 +5,9 @@ venv/
 *.venv/
 envorinment-terminal-commands.txt
 
+test_backend.ps1
+test-backend-fixed.ps1
+
 # Python caches and compiled files
 __pycache__/
 *.py[cod]

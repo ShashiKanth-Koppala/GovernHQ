@@ -62,9 +62,9 @@ def _err(message: str, status: int) -> JSONResponse:
 # Verifies JWT via Supabase, resolves organization_id from organizations table.
 # ---------------------------------------------------------------------------
 
-def get_org_id(authorization: str = Header(...)) -> str:
-    if not authorization.startswith("Bearer "):
-        raise ValueError("Missing Bearer token")
+def get_org_id(authorization: str | None = Header(default=None)) -> str:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise _AuthError("Missing or invalid token", 401)
     token = authorization.removeprefix("Bearer ")
 
     try:

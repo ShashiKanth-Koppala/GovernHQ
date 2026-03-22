@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { ChevronRight, Copy, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { supabase } from "@/lib/supabase"
 
 type SettingTab = "organization" | "members" | "api" | "integrations" | "billing"
 
@@ -18,7 +19,56 @@ const settingTabs = [
 
 export function SettingsTab() {
   const [activeTab, setActiveTab] = useState<SettingTab>("organization")
-  const [orgName, setOrgName] = useState("Acme Corp")
+  const [orgName, setOrgName] = useState("")
+  const [orgId, setOrgId] = useState("")
+  const [orgLoading, setOrgLoading] = useState(true)
+  const [orgError, setOrgError] = useState<string | null>(null)
+  const [saveLoading, setSaveLoading] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
+  const fetchOrg = useCallback(async () => {
+    setOrgLoading(true)
+    setOrgError(null)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setOrgError("Not signed in"); return }
+
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("owner_id", user.id)
+        .single()
+
+      if (error || !data) {
+        setOrgError("Could not load organization")
+        return
+      }
+      setOrgName(data.name ?? "")
+      setOrgId(data.id ?? "")
+    } catch {
+      setOrgError("Failed to load organization")
+    } finally {
+      setOrgLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchOrg() }, [fetchOrg])
+
+  const handleSaveOrg = async () => {
+    if (!orgId) return
+    setSaveLoading(true)
+    setSaveSuccess(false)
+    try {
+      const { error } = await supabase
+        .from("organizations")
+        .update({ name: orgName })
+        .eq("id", orgId)
+      if (!error) setSaveSuccess(true)
+    } finally {
+      setSaveLoading(false)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    }
+  }
   const [members, setMembers] = useState([
     { id: "1", name: "John Doe", email: "john@acme.com", role: "Owner" },
     { id: "2", name: "Jane Smith", email: "jane@acme.com", role: "Admin" },
@@ -42,6 +92,7 @@ export function SettingsTab() {
       <div className="flex gap-1 border-b border-border">
         {settingTabs.map((tab) => (
           <button
+            type="button"
             key={tab.value}
             onClick={() => setActiveTab(tab.value)}
             className={cn(
@@ -63,25 +114,39 @@ export function SettingsTab() {
             <h3 className="text-sm uppercase tracking-wider text-muted-foreground font-medium mb-4">
               Organization Details
             </h3>
+            {orgError && <p className="text-sm text-govern-red mb-3">{orgError}</p>}
             <div className="flex flex-col gap-4">
               <div>
-                <label className="text-sm font-medium text-foreground block mb-2">Organization Name</label>
+                <label htmlFor="org-name" className="text-sm font-medium text-foreground block mb-2">
+                  Organization Name
+                </label>
                 <Input
+                  id="org-name"
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
+                  disabled={orgLoading}
+                  placeholder={orgLoading ? "Loading…" : "Organization name"}
                   className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground block mb-2">Organization ID</label>
+                <label htmlFor="org-id" className="text-sm font-medium text-foreground block mb-2">
+                  Organization ID
+                </label>
                 <Input
-                  value="org_acme_12345"
+                  id="org-id"
+                  value={orgId}
                   disabled
-                  className="bg-secondary border-border text-muted-foreground"
+                  className="bg-secondary border-border text-muted-foreground font-mono text-xs"
                 />
               </div>
-              <Button className="w-fit bg-govern-green text-foreground hover:bg-govern-green/90">
-                Save Changes
+              <Button
+                type="button"
+                onClick={handleSaveOrg}
+                disabled={saveLoading || orgLoading || !orgId}
+                className="w-fit bg-govern-green text-foreground hover:bg-govern-green/90"
+              >
+                {saveLoading ? "Saving…" : saveSuccess ? "Saved ✓" : "Save Changes"}
               </Button>
             </div>
           </div>
@@ -93,6 +158,7 @@ export function SettingsTab() {
               Danger Zone
             </h3>
             <Button
+              type="button"
               variant="outline"
               className="border-govern-red text-govern-red bg-transparent hover:bg-govern-red/10"
             >
@@ -107,7 +173,7 @@ export function SettingsTab() {
         <div className="flex flex-col gap-6 max-w-2xl">
           <div className="flex items-center justify-between">
             <h3 className="text-sm uppercase tracking-wider text-muted-foreground font-medium">Team Members</h3>
-            <Button className="bg-govern-green text-foreground hover:bg-govern-green/90 gap-2">
+            <Button type="button" className="bg-govern-green text-foreground hover:bg-govern-green/90 gap-2">
               Add Member
             </Button>
           </div>
@@ -122,13 +188,18 @@ export function SettingsTab() {
                 <div className="flex items-center gap-3">
                   <select
                     defaultValue={member.role}
+                    aria-label={`Role for ${member.name}`}
                     className="px-3 py-2 rounded-md bg-secondary border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-govern-green/50"
                   >
                     <option className="bg-card">Owner</option>
                     <option className="bg-card">Admin</option>
                     <option className="bg-card">Viewer</option>
                   </select>
-                  <button className="text-govern-red hover:bg-govern-red/10 p-2 rounded transition-colors">
+                  <button
+                    type="button"
+                    aria-label={`Remove ${member.name}`}
+                    className="text-govern-red hover:bg-govern-red/10 p-2 rounded transition-colors"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -143,7 +214,7 @@ export function SettingsTab() {
         <div className="flex flex-col gap-6 max-w-2xl">
           <div className="flex items-center justify-between">
             <h3 className="text-sm uppercase tracking-wider text-muted-foreground font-medium">API Keys</h3>
-            <Button className="bg-govern-green text-foreground hover:bg-govern-green/90 gap-2">
+            <Button type="button" className="bg-govern-green text-foreground hover:bg-govern-green/90 gap-2">
               Generate Key
             </Button>
           </div>
@@ -160,6 +231,8 @@ export function SettingsTab() {
                     {apiKey.key}
                   </code>
                   <button
+                    type="button"
+                    aria-label={`Copy ${apiKey.name} key`}
                     onClick={() => copyToClipboard(apiKey.key, apiKey.id)}
                     className="text-muted-foreground hover:text-foreground p-2 rounded transition-colors"
                   >
@@ -169,7 +242,11 @@ export function SettingsTab() {
                     <span className="text-xs text-govern-green">Copied!</span>
                   )}
                 </div>
-                <button className="text-govern-red hover:bg-govern-red/10 p-2 rounded transition-colors">
+                <button
+                  type="button"
+                  aria-label={`Delete ${apiKey.name} key`}
+                  className="text-govern-red hover:bg-govern-red/10 p-2 rounded transition-colors"
+                >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
@@ -23,7 +25,9 @@ async def evaluate_gate(
             status_code=429,
         )
 
+    trace_id = str(uuid4())
     result = evaluate_intent(payload, org_id=org_id)
+    result.trace_id = trace_id
 
     # Fetch agent display info for the response (best-effort; never fails the request)
     agent_info: dict = {}

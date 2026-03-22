@@ -136,3 +136,82 @@ def get_metrics(ctx: dict = Depends(auth_context)) -> JSONResponse:
         "agents_monitored": agents_monitored,
         "avg_gate_ms": avg_gate_ms,
     })
+
+
+# ---------------------------------------------------------------------------
+# GET /monitoring/anomalies
+# Returns ledger_events rows that carry anomaly detection data in their
+# metadata field (written by the anomaly detection layer when active).
+# Empty list is normal until detect_anomalies() writes anomaly metadata.
+# ---------------------------------------------------------------------------
+
+@router.get("/anomalies")
+def get_anomalies(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    ctx: dict = Depends(auth_context),
+) -> JSONResponse:
+    org_id = ctx["organization_id"]
+    db = get_db()
+
+    result = (
+        db.table(_LEDGER)
+        .select(_LEDGER_COLS)
+        .eq("organization_id", org_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    all_rows = result.data or []
+
+    anomaly_rows = [
+        r for r in all_rows
+        if isinstance(r.get("metadata"), dict) and r["metadata"].get("anomaly")
+    ]
+
+    total = len(anomaly_rows)
+    page  = anomaly_rows[offset: offset + limit]
+
+    return _ok({"rows": page, "total": total, "limit": limit, "offset": offset})
+
+
+# ---------------------------------------------------------------------------
+# GET /monitoring/sources
+# Returns per-source (n8n / zapier) breakdown of Gate decision counts.
+# Joins ledger_events with agents (in Python) to resolve source from agent_id.
+# ---------------------------------------------------------------------------
+
+@router.get("/sources")
+def get_sources(ctx: dict = Depends(auth_context)) -> JSONResponse:
+    org_id = ctx["organization_id"]
+    db = get_db()
+
+    agents_resp = (
+        db.table("agents")
+        .select("id, source")
+        .eq("organization_id", org_id)
+        .execute()
+    )
+    source_map: dict[str, str] = {
+        a["id"]: a.get("source", "unknown")
+        for a in (agents_resp.data or [])
+    }
+
+    ledger_resp = (
+        db.table(_LEDGER)
+        .select("agent_id, status")
+        .eq("organization_id", org_id)
+        .execute()
+    )
+    rows = ledger_resp.data or []
+
+    counts: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        src = source_map.get(row.get("agent_id") or "", "unknown")
+        if src not in counts:
+            counts[src] = {"source": src, "total": 0, "allow": 0, "pause": 0, "block": 0}
+        counts[src]["total"] += 1
+        st = row.get("status", "")
+        if st in ("allow", "pause", "block"):
+            counts[src][st] += 1
+
+    return _ok(list(counts.values()))
