@@ -1,6 +1,6 @@
 from typing import Any
 
-from core.auth import get_db
+from backend.core.auth import get_db
 
 
 def log_gate_execution(
@@ -9,10 +9,12 @@ def log_gate_execution(
     intent: str,
     decision: str,
     metadata: dict[str, Any],
+    org_id: str,
 ) -> dict | None:
     db = get_db()
 
     payload = {
+        "organization_id": org_id,
         "agent_id": agent_id,
         "action": intent,
         "status": decision,

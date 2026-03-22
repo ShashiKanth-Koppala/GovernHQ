@@ -26,9 +26,9 @@ from pydantic import BaseModel
 from supabase import Client, create_client
 
 # ADDED BY MICHAEL
-from gate.logging import log_gate_execution
-from gate.schemas import GateEvaluateRequest
-from gate.service import evaluate_intent
+from backend.gate.logging import log_gate_execution
+from backend.gate.schemas import GateEvaluateRequest
+from backend.gate.service import evaluate_intent
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -62,9 +62,9 @@ def _err(message: str, status: int) -> JSONResponse:
 # Verifies JWT via Supabase, resolves organization_id from organizations table.
 # ---------------------------------------------------------------------------
 
-def get_org_id(authorization: str = Header(...)) -> str:
-    if not authorization.startswith("Bearer "):
-        raise ValueError("Missing Bearer token")
+def get_org_id(authorization: str | None = Header(default=None)) -> str:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise _AuthError("Missing or invalid token", 401)
     token = authorization.removeprefix("Bearer ")
 
     try:
@@ -241,6 +241,7 @@ def execute_agent(
 
     gate_result = evaluate_intent(
         gate_payload,
+        org_id=org_id,
         risk_profile=agent.get("risk_profile"),
     )
 
@@ -249,6 +250,7 @@ def execute_agent(
         intent=body.intent,
         decision=gate_result.decision,
         metadata=body.metadata,
+        org_id=org_id,
     )
 
     return _ok(

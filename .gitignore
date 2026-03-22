@@ -1,12 +1,25 @@
+.claude/
+.vscode/
 venv/
+.venv/
+*.venv/
+envorinment-terminal-commands.txt
+test_backend.ps1
+test-backend-fixed.ps1
+
+# Python caches and compiled files
+__pycache__/
+*.py[cod]
+
+# Local environment files
+backend/.env
 .env
 .env.local
+
+# Node and UI files
 node_modules/
-__pycache__/
-*.pyc
 .next/
 dist/
 build/
-.vscode/
 .idea/
 .DS_Store
