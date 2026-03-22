@@ -211,23 +211,6 @@ export function AgentsPage() {
             <span className="text-[#3b82f6] drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">•  LIVE</span>
           </p>
 
-          {/* Unverified Agent Warning */}
-          <div className="bg-gradient-to-br from-[#f59e0b]/10 to-transparent border border-[#f59e0b]/30 rounded-[12px] p-[16px] mb-[24px] flex items-center justify-between">
-            <div className="flex items-center gap-[12px]">
-              <div className="flex items-center justify-center">
-                <svg className="size-[20px]" fill="none" viewBox="0 0 20 20">
-                  <path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#f59e0b] text-[14px]">1 unverified agent detected</p>
-            </div>
-            <button className="text-[#f59e0b] hover:text-[#fb923c] transition-colors">
-              <svg className="size-[16px]" fill="none" viewBox="0 0 16 16">
-                <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
-
           {/* Stats Summary */}
           <div className="grid grid-cols-4 gap-[24px] mb-[32px]">
             <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] shadow-[0px_8px_32px_0px_rgba(0,0,0,0.3)] backdrop-blur-xl p-[24px] hover:border-[#3b82f6]/50 transition-all">

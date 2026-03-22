@@ -1,6 +1,5 @@
 import { Sidebar } from "../components/Sidebar";
 import { useState } from "react";
-import exampleImage from 'figma:asset/f25b1d499d981b739d9547e8ba26231a11fa959f.png';
 
 export function ShieldPage() {
   const [enforcementMode, setEnforcementMode] = useState('Strict');
@@ -117,8 +116,8 @@ export function ShieldPage() {
               <div className="flex items-center gap-[10px] mb-[16px]">
                 <div className="size-[32px] rounded-full bg-[#ef4444]/20 flex items-center justify-center shrink-0">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M8 3.5L8 8.5M8 11L8 11.5" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
-                    <path d="M8 1L14.928 13H1.072L8 1Z" stroke="#ef4444" strokeWidth="1.5" strokeLinejoin="round" fill="none"/>
+                    <path d="M8 3.5L8 8.5M8 11L8 11.5" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M8 1L14.928 13H1.072L8 1Z" stroke="#ef4444" strokeWidth="1.5" strokeLinejoin="round" fill="none" />
                   </svg>
                 </div>
                 <h3 className="font-['Mulish:Bold',sans-serif] font-bold text-[#ef4444] text-[16px] uppercase tracking-wider">
@@ -129,11 +128,11 @@ export function ShieldPage() {
               <h4 className="font-['Mulish:Bold',sans-serif] font-bold text-white text-[18px] mb-[12px]">
                 Block All Agents
               </h4>
-              
+
               <p className="font-['Mulish:Regular',sans-serif] text-[#94a3b8] text-[14px] mb-[12px] leading-relaxed">
                 Instantly block every agent. Revoke all credentials. Stop all reasoning and actions.
               </p>
-              
+
               <p className="font-['Mulish:Regular',sans-serif] italic text-[#64748b] text-[13px] mb-[20px]">
                 Requires CISO biometric authentication
               </p>
@@ -151,26 +150,26 @@ export function ShieldPage() {
               <div className="flex items-center gap-[10px] mb-[16px]">
                 <div className="size-[24px] rounded-full border-2 border-[#64748b] flex items-center justify-center shrink-0">
                   <svg width="12" height="2" viewBox="0 0 12 2" fill="none">
-                    <path d="M1 1H11" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M1 1H11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" />
                   </svg>
                 </div>
                 <h3 className="font-['Mulish:Bold',sans-serif] font-bold text-white text-[16px]">
                   Blocked Agents
                 </h3>
               </div>
-              
+
               <p className="font-['Mulish:Regular',sans-serif] text-[#64748b] text-[13px] mb-[20px] leading-relaxed">
                 Agents blocked entirely. Cannot reason or act until re-allowed.
               </p>
 
               <div className="space-y-[12px]">
                 {blockedAgents.map((agent, index) => (
-                  <div 
-                    key={index} 
+                  <div
+                    key={index}
                     className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/40 rounded-[12px] overflow-hidden transition-all"
                   >
                     {/* Agent Header - Clickable */}
-                    <div 
+                    <div
                       className="p-[18px] cursor-pointer hover:bg-[#1e293b]/30 transition-all"
                       onClick={() => setExpandedAgent(expandedAgent === agent.name ? null : agent.name)}
                     >
@@ -188,14 +187,14 @@ export function ShieldPage() {
                           <span className="font-['Mulish:Regular',sans-serif] text-[#64748b] text-[12px]">
                             {agent.time}
                           </span>
-                          <svg 
-                            width="12" 
-                            height="12" 
-                            viewBox="0 0 12 12" 
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 12 12"
                             fill="none"
                             className={`transition-transform ${expandedAgent === agent.name ? 'rotate-180' : ''}`}
                           >
-                            <path d="M2 4L6 8L10 4" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M2 4L6 8L10 4" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </div>
                       </div>
@@ -217,7 +216,7 @@ export function ShieldPage() {
                           <p className="font-['Mulish:Regular',sans-serif] italic text-[#64748b] text-[12px] mt-[8px]">
                             Agent cannot reason or act until re-allowed.
                           </p>
-                          
+
                           {agent.canReAllow && (
                             <button
                               onClick={() => handleAllowAgent(agent.name)}
@@ -240,14 +239,14 @@ export function ShieldPage() {
         <div className="shrink-0 overflow-y-auto bg-gradient-to-br from-[#1e293b] to-[#0f172a] border-l border-[#1e293b]/50 shadow-[-12px_0_48px_0_rgba(0,0,0,0.7)] backdrop-blur-xl p-[48px] relative" style={{ width: 'calc(33.333% + 33px)' }}>
           {/* Ambient glow */}
           <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-[#3b82f6]/10 blur-[120px] rounded-full pointer-events-none" />
-          
+
           <div className="space-y-[32px] relative z-10">
             {/* Protection Controls */}
             <div className="bg-gradient-to-br from-[#1e293b]/60 to-[#0f172a]/40 border border-[rgba(51,65,85,0.4)] rounded-[16px] p-[24px]">
               <h2 className="font-['Mulish:SemiBold',sans-serif] font-semibold text-[#94a3b8] text-[12px] uppercase tracking-wide mb-[24px]">
                 Protection Controls
               </h2>
-              
+
               <div className="space-y-[20px]">
                 {/* Enforcement Mode */}
                 <div>
@@ -266,7 +265,7 @@ export function ShieldPage() {
                     </select>
                     <div className="absolute left-[12px] top-[10px] pointer-events-none">
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M13 4L6 11L3 8" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M13 4L6 11L3 8" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </div>
                   </div>
@@ -340,7 +339,7 @@ export function ShieldPage() {
                     </select>
                     <div className="absolute left-[12px] top-[10px] pointer-events-none">
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M13 4L6 11L3 8" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M13 4L6 11L3 8" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </div>
                   </div>
@@ -355,7 +354,7 @@ export function ShieldPage() {
             <div>
               <div className="flex items-center gap-[10px] mb-[24px]">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M16 6L8.5 13.5L4 9" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M16 6L8.5 13.5L4 9" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <h2 className="font-['Mulish:Bold',sans-serif] font-bold text-white text-[18px]">
                   How GovernHQ Protects
@@ -385,11 +384,11 @@ export function ShieldPage() {
                           </span>
                         </div>
                       </div>
-                      
+
                       <p className="font-['Mulish:Regular',sans-serif] text-[#94a3b8] text-[13px] mb-[10px] leading-relaxed">
                         Intercepts reasoning. Blocks bad actions. Agent keeps running.
                       </p>
-                      
+
                       <p className="font-['Mulish:Regular',sans-serif] text-[#64748b] text-[11px]">
                         8,432 reasoning evaluated · 23 actions blocked · 5 actions paused · 1ms avg
                       </p>
@@ -418,11 +417,11 @@ export function ShieldPage() {
                           </span>
                         </div>
                       </div>
-                      
+
                       <p className="font-['Mulish:Regular',sans-serif] text-[#94a3b8] text-[13px] mb-[10px] leading-relaxed">
                         Watches reasoning patterns. Blocks bad agents.
                       </p>
-                      
+
                       <p className="font-['Mulish:Regular',sans-serif] text-[#64748b] text-[11px]">
                         2 anomalies today · 2 agents blocked
                       </p>
@@ -451,11 +450,11 @@ export function ShieldPage() {
                           </span>
                         </div>
                       </div>
-                      
+
                       <p className="font-['Mulish:Regular',sans-serif] text-[#94a3b8] text-[13px] mb-[10px] leading-relaxed">
                         Instantly blocks all agents.
                       </p>
-                      
+
                       <p className="font-['Mulish:Regular',sans-serif] text-[#64748b] text-[11px]">
                         Measured latency: 8ms
                       </p>
@@ -471,7 +470,7 @@ export function ShieldPage() {
       {/* Biometric Authentication Modal for Block All Agents */}
       {showBiometricModal && (
         <>
-          <div 
+          <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
             onClick={() => {
               setShowBiometricModal(false);
@@ -482,14 +481,14 @@ export function ShieldPage() {
             <div className="flex items-center gap-[12px] mb-[24px]">
               <div className="size-[40px] rounded-full bg-[#ef4444]/20 flex items-center justify-center">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 3v9m0 3v.5" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M12 3v9m0 3v.5" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
               <h3 className="font-['Mulish:Bold',sans-serif] font-bold text-white text-[22px]">
                 CISO Authorization Required
               </h3>
             </div>
-            
+
             <p className="font-['Mulish:Regular',sans-serif] text-[#cbd5e1] text-[15px] mb-[6px]">
               This emergency action requires Chief Information Security Officer (CISO) biometric authentication and justification.
             </p>
@@ -502,11 +501,11 @@ export function ShieldPage() {
               <div className="size-[120px] rounded-full bg-gradient-to-br from-[#ef4444]/20 to-[#dc2626]/10 border-2 border-[#ef4444]/40 flex items-center justify-center mb-[16px] relative overflow-hidden">
                 {/* Fingerprint Icon */}
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
-                  <path d="M30 15C23.373 15 18 20.373 18 27C18 33.627 23.373 39 30 39" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
-                  <path d="M30 21C26.686 21 24 23.686 24 27C24 30.314 26.686 33 30 33" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
-                  <path d="M30 27V45" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
-                  <path d="M36 27C36 23.686 33.314 21 30 21" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
-                  <path d="M42 27C42 20.373 36.627 15 30 15" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M30 15C23.373 15 18 20.373 18 27C18 33.627 23.373 39 30 39" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M30 21C26.686 21 24 23.686 24 27C24 30.314 26.686 33 30 33" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M30 27V45" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M36 27C36 23.686 33.314 21 30 21" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M42 27C42 20.373 36.627 15 30 15" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
                 </svg>
                 {/* Scanning line animation */}
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#ef4444]/30 to-transparent animate-pulse" />
@@ -536,7 +535,7 @@ export function ShieldPage() {
             </div>
 
             <div className="flex gap-[12px]">
-              <button 
+              <button
                 onClick={() => {
                   setShowBiometricModal(false);
                   setBiometricJustification('');
@@ -545,7 +544,7 @@ export function ShieldPage() {
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleBiometricConfirm}
                 disabled={!biometricJustification.trim()}
                 className="flex-1 bg-[#ef4444] hover:bg-[#dc2626] disabled:bg-[#334155] disabled:cursor-not-allowed text-white font-['Mulish:Bold',sans-serif] font-bold text-[14px] px-[24px] py-[12px] rounded-[8px] shadow-[0_0_20px_rgba(239,68,68,0.5)] disabled:shadow-none transition-all"
