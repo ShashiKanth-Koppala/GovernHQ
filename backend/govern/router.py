@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from core.auth import auth_context, get_db
+from backend.core.auth import auth_context, get_db
 from .schemas import GovernEvaluateRequest, GovernEvaluateResponse
 from .service import process_evaluation
-from gate.logging import log_gate_execution
+from backend.gate.logging import log_gate_execution
 
 router = APIRouter(prefix="/govern", tags=["govern"])
 

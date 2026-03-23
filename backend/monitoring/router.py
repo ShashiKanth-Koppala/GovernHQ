@@ -23,7 +23,7 @@ from typing import Any, Literal, Optional
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 
-from core.auth import auth_context, get_db
+from backend.core.auth import auth_context, get_db
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 

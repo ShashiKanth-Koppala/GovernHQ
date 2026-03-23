@@ -2,7 +2,7 @@ from typing import Any, Optional
 from datetime import datetime, timedelta
 import json
 
-from core.auth import get_db
+from backend.core.auth import get_db
 from .schemas import GovernEvaluateRequest, GovernEvaluateResponse
 
 # Keyword-based policy rules (MVP)

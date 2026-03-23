@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from core.auth import auth_context, get_db
+from backend.core.auth import auth_context, get_db
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
