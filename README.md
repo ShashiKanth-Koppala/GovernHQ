@@ -237,6 +237,7 @@ GovernHQ/
 ├── supabase/
 │   └── migrations/           # SQL migration files
 ├── docs/
+│   ├── Decision_Govern.md    # How GovernHQ Makes Decisions
 │   └── n8n-integration.md    # n8n workflow setup + test guide
 
 ```

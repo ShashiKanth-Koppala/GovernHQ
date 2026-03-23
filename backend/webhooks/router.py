@@ -31,10 +31,10 @@ from fastapi import APIRouter, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from backend.core.auth import get_db
-from backend.gate.logging import log_gate_execution
-from backend.gate.schemas import GateEvaluateRequest
-from backend.gate.service import evaluate_intent
+from core.auth import get_db
+from gate.logging import log_gate_execution
+from gate.schemas import GateEvaluateRequest
+from gate.service import evaluate_intent
 
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 

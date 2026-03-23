@@ -4,7 +4,6 @@ venv/
 .venv/
 *.venv/
 envorinment-terminal-commands.txt
-
 test_backend.ps1
 test-backend-fixed.ps1
 
@@ -15,3 +14,12 @@ __pycache__/
 # Local environment files
 backend/.env
 .env
+.env.local
+
+# Node and UI files
+node_modules/
+.next/
+dist/
+build/
+.idea/
+.DS_Store

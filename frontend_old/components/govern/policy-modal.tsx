@@ -12,68 +12,57 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 
-export type PolicyAction = "block" | "review" | "log"
-
-export interface PolicyModalData {
-  name: string
-  description: string
-  action: PolicyAction
-  condition: string
-}
-
 interface PolicyModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (data: PolicyModalData) => void
+  onSave: (data: { name: string; description: string; category: string }) => void
 }
 
-const ACTION_OPTIONS: { value: PolicyAction; label: string }[] = [
-  { value: "block",  label: "Block — prevent the action entirely" },
-  { value: "review", label: "Review — pause for human approval" },
-  { value: "log",    label: "Log — allow but record the event" },
+const categories = [
+  "Data Protection",
+  "Security",
+  "Financial",
+  "Performance",
+  "Compliance",
+  "Custom",
 ]
 
-const EMPTY: PolicyModalData = {
-  name: "",
-  description: "",
-  action: "log",
-  condition: "",
-}
-
 export function PolicyModal({ open, onOpenChange, onSave }: PolicyModalProps) {
-  const [form, setForm] = useState<PolicyModalData>(EMPTY)
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [category, setCategory] = useState("Data Protection")
   const [error, setError] = useState("")
 
-  function set<K extends keyof PolicyModalData>(key: K, value: PolicyModalData[K]) {
-    setForm(prev => ({ ...prev, [key]: value }))
-  }
-
-  const handleSubmit = (e: { preventDefault(): void }) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
-    if (!form.name.trim()) {
+    if (!name.trim()) {
       setError("Policy name is required")
       return
     }
-    if (!form.condition.trim()) {
-      setError("Condition is required")
+
+    if (!description.trim()) {
+      setError("Description is required")
       return
     }
 
     onSave({
-      name: form.name.trim(),
-      description: form.description.trim(),
-      action: form.action,
-      condition: form.condition.trim(),
+      name: name.trim(),
+      description: description.trim(),
+      category,
     })
 
-    setForm(EMPTY)
+    setName("")
+    setDescription("")
+    setCategory("Data Protection")
   }
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      setForm(EMPTY)
+      setName("")
+      setDescription("")
+      setCategory("Data Protection")
       setError("")
     }
     onOpenChange(newOpen)
@@ -85,7 +74,7 @@ export function PolicyModal({ open, onOpenChange, onSave }: PolicyModalProps) {
         <DialogHeader>
           <DialogTitle className="text-foreground">Create Policy</DialogTitle>
           <DialogDescription>
-            Define a rule that Gate will enforce on every agent action.
+            Define a new policy to govern your AI agent behavior
           </DialogDescription>
         </DialogHeader>
 
@@ -99,9 +88,9 @@ export function PolicyModal({ open, onOpenChange, onSave }: PolicyModalProps) {
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-foreground">Policy Name</label>
             <Input
-              placeholder="e.g., Block Financial Transfers"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
+              placeholder="e.g., PII Access Control"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
@@ -110,39 +99,26 @@ export function PolicyModal({ open, onOpenChange, onSave }: PolicyModalProps) {
             <label className="text-sm font-medium text-foreground">Description</label>
             <textarea
               placeholder="Describe what this policy controls and enforces..."
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
               className="px-3 py-2 rounded-md bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-govern-green/50 resize-none"
             />
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-foreground">Action</label>
+            <label className="text-sm font-medium text-foreground">Category</label>
             <select
-              value={form.action}
-              onChange={(e) => set("action", e.target.value as PolicyAction)}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
               className="px-3 py-2 rounded-md bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-govern-green/50"
             >
-              {ACTION_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value} className="bg-card">
-                  {opt.label}
+              {categories.map((cat) => (
+                <option key={cat} value={cat} className="bg-card">
+                  {cat}
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-foreground">Condition</label>
-            <Input
-              placeholder='e.g., "send email" or "delete file"'
-              value={form.condition}
-              onChange={(e) => set("condition", e.target.value)}
-              className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-            />
-            <p className="text-xs text-muted-foreground">
-              Gate will match this against agent intent (case-insensitive substring).
-            </p>
           </div>
 
           <DialogFooter className="gap-2">
