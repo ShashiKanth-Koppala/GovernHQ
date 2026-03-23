@@ -11,13 +11,12 @@ DB:       Supabase Python client, service key (bypasses RLS).
 
 Response: {"data": <payload | null>, "error": <message | null>, "status": <int>}
           HTTP status code matches the status field.
-
-Execute:  Stub only — Gate integration pending (Step 3).
 """
 
 from __future__ import annotations
 
 import os
+import time
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, Header
@@ -29,6 +28,7 @@ from supabase import Client, create_client
 from backend.gate.logging import log_gate_execution
 from backend.gate.schemas import GateEvaluateRequest
 from backend.gate.service import evaluate_intent
+from backend.monitoring.anomaly import detect_anomalies
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -110,6 +110,8 @@ class AgentCreate(BaseModel):
     source: Literal["n8n", "zapier"]
     metadata: dict = {}
     risk_profile: Literal["low", "medium", "high"] = "low"
+    verified: bool = False
+    scope: dict = {}  # {} = unrestricted; set fields to enforce gate scope
 
 
 class AgentUpdate(BaseModel):
@@ -118,6 +120,8 @@ class AgentUpdate(BaseModel):
     metadata: Optional[dict] = None
     risk_profile: Optional[Literal["low", "medium", "high"]] = None
     status: Optional[Literal["active", "inactive", "blocked"]] = None
+    verified: Optional[bool] = None
+    scope: Optional[dict] = None  # None = no change; {} = clear scope (unrestricted)
 
 
 # ADDED BY MICHAEL
@@ -127,8 +131,56 @@ class AgentExecuteRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Intelligence helpers
+# Compute trust_score (0–100) and gate_rate (0.0–100.0 | None) per agent
+# from ledger_events rows. Called inside list_agents after fetching all events
+# for the org in a single query.
+# ---------------------------------------------------------------------------
+
+def _build_agent_stats(ledger_rows: list[dict]) -> dict[str, dict[str, int]]:
+    stats: dict[str, dict[str, int]] = {}
+    for row in ledger_rows:
+        aid = row.get("agent_id")
+        if not aid:
+            continue
+        if aid not in stats:
+            stats[aid] = {"total": 0, "allowed": 0, "blocked": 0, "paused": 0}
+        stats[aid]["total"] += 1
+        st = row.get("status", "")
+        if st == "allow":
+            stats[aid]["allowed"] += 1
+        elif st == "block":
+            stats[aid]["blocked"] += 1
+        elif st == "pause":
+            stats[aid]["paused"] += 1
+    return stats
+
+
+def _trust_score(s: dict[str, int]) -> int:
+    """
+    0–100. New agents start at 100. Decays with blocks, rises with allows.
+    Formula: weighted allow_rate (60%) + non-block rate (40%), scaled to 100.
+    """
+    total = s["total"]
+    if total == 0:
+        return 100
+    allow_rate = s["allowed"] / total
+    block_rate = s["blocked"] / total
+    return max(0, min(100, round((allow_rate * 0.6 + (1 - block_rate) * 0.4) * 100)))
+
+
+def _gate_rate(s: dict[str, int]) -> float | None:
+    """Percentage of allowed decisions out of total. None if no events yet."""
+    total = s["total"]
+    if total == 0:
+        return None
+    return round(s["allowed"] / total * 100, 1)
+
+
+# ---------------------------------------------------------------------------
 # GET /agents
-# Returns all agents belonging to the caller's organization.
+# Returns all agents for the org, enriched with trust_score and gate_rate
+# computed from ledger_events (single extra query, aggregated in Python).
 # ---------------------------------------------------------------------------
 
 @router.get("")
@@ -140,7 +192,23 @@ def list_agents(org_id: str = Depends(get_org_id)) -> JSONResponse:
         .order("created_at", desc=True)
         .execute()
     )
-    return _ok(result.data)
+    agents = result.data or []
+
+    # Fetch all ledger_events for this org (status + agent_id only — minimal payload)
+    ledger_resp = (
+        _db.table("ledger_events")
+        .select("agent_id, status")
+        .eq("organization_id", org_id)
+        .execute()
+    )
+    stats = _build_agent_stats(ledger_resp.data or [])
+
+    for agent in agents:
+        s = stats.get(agent["id"], {"total": 0, "allowed": 0, "blocked": 0, "paused": 0})
+        agent["trust_score"] = _trust_score(s)
+        agent["gate_rate"] = _gate_rate(s)
+
+    return _ok(agents)
 
 
 # ---------------------------------------------------------------------------
@@ -239,17 +307,32 @@ def execute_agent(
         metadata=body.metadata,
     )
 
+    # Monitor layer: detect behavioral anomalies and auto-block agent if any rule fires
+    anomaly = detect_anomalies(agent_id, org_id, _db)
+
+    t0 = time.monotonic()
     gate_result = evaluate_intent(
         gate_payload,
         org_id=org_id,
         risk_profile=agent.get("risk_profile"),
     )
+    elapsed_ms = round((time.monotonic() - t0) * 1000, 1)
+
+    # Build log metadata: always include risk_score (required for anomaly Rule 3);
+    # annotate anomaly if detected.
+    log_metadata: dict = dict(body.metadata or {})
+    log_metadata["risk_score"] = gate_result.risk_score
+    if gate_result.decision == "block":
+        log_metadata["block_latency_ms"] = elapsed_ms
+    if anomaly["anomaly"]:
+        log_metadata["anomaly"]        = True
+        log_metadata["anomaly_reason"] = anomaly["anomaly_reason"]
 
     log_row = log_gate_execution(
         agent_id=agent_id,
         intent=body.intent,
         decision=gate_result.decision,
-        metadata=body.metadata,
+        metadata=log_metadata,
         org_id=org_id,
     )
 
@@ -266,6 +349,8 @@ def execute_agent(
                 "metadata": body.metadata,
             },
             "gate": gate_result.model_dump(),
+            "anomaly": anomaly["anomaly"],
+            "anomaly_reason": anomaly["anomaly_reason"],
             "log_id": log_row["id"] if log_row and "id" in log_row else None,
         }
     )

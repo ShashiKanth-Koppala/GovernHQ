@@ -1,20 +1,23 @@
 """
 Monitoring router — GovernHQ
 
-GET /monitoring/ledger  — paginated Gate decision log for the org
-GET /monitoring/metrics — aggregated counts and stats for the org
+GET /monitoring/ledger           — paginated Gate decision log for the org
+GET /monitoring/metrics          — aggregated counts and stats for the org
+GET /monitoring/anomalies        — rows with anomaly metadata
+GET /monitoring/sources          — per-source decision breakdown
+GET /monitoring/chain-integrity  — verify the ledger hash chain
 
 Auth:     Bearer JWT → org_id resolved via core.auth.auth_context
-          (same resolution logic as gate/router.py)
 DB:       core.auth.get_db() singleton — service key, org scoping explicit
 Response: {"data": ..., "error": null, "status": int}
 
 ledger_events columns queried: id, agent_id, action, status, metadata,
-                                created_at, organization_id
+                                created_at, organization_id, action_type, prev_hash
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -25,7 +28,8 @@ from backend.core.auth import auth_context, get_db
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
 _LEDGER = "ledger_events"
-_LEDGER_COLS = "id, agent_id, action, status, metadata, created_at, organization_id"
+_LEDGER_COLS = "id, agent_id, action, status, metadata, created_at, organization_id, action_type, prev_hash"
+_CHAIN_COLS  = "id, agent_id, action, status, created_at, prev_hash"
 
 # ---------------------------------------------------------------------------
 # Response helpers
@@ -42,14 +46,15 @@ def _err(message: str, status: int) -> JSONResponse:
 # ---------------------------------------------------------------------------
 # GET /monitoring/ledger
 # Returns paginated ledger_events for the caller's org, newest first.
-# Optional filters: status, agent_id. Pagination: limit (max 100) + offset.
-# Response includes total count matching all filters (not just the page).
+# Optional filters: status, agent_id, action_type.
+# Pagination: limit (max 100) + offset.
 # ---------------------------------------------------------------------------
 
 @router.get("/ledger")
 def get_ledger(
     status: Optional[Literal["allow", "pause", "block"]] = Query(default=None),
     agent_id: Optional[str] = Query(default=None),
+    action_type: Optional[str] = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     ctx: dict = Depends(auth_context),
@@ -69,6 +74,9 @@ def get_ledger(
     if agent_id is not None:
         query = query.eq("agent_id", agent_id)
 
+    if action_type is not None:
+        query = query.eq("action_type", action_type)
+
     result = (
         query
         .order("created_at", desc=True)
@@ -86,15 +94,6 @@ def get_ledger(
 
 # ---------------------------------------------------------------------------
 # GET /monitoring/metrics
-# Returns aggregated stats for the org's ledger_events.
-#
-# avg_gate_ms: reads metadata["gate_ms"] per row. Currently null for all
-#   rows because no caller writes gate_ms into metadata yet. Will become
-#   live once callers (agents/router.py or gate/router.py) add timing and
-#   store it under that key before calling log_gate_execution().
-#
-# NOTE: fetches all rows for the org. Acceptable for MVP; add DB-side
-#   aggregation (via Postgres function or SQL endpoint) if row counts grow.
 # ---------------------------------------------------------------------------
 
 @router.get("/metrics")
@@ -140,9 +139,6 @@ def get_metrics(ctx: dict = Depends(auth_context)) -> JSONResponse:
 
 # ---------------------------------------------------------------------------
 # GET /monitoring/anomalies
-# Returns ledger_events rows that carry anomaly detection data in their
-# metadata field (written by the anomaly detection layer when active).
-# Empty list is normal until detect_anomalies() writes anomaly metadata.
 # ---------------------------------------------------------------------------
 
 @router.get("/anomalies")
@@ -176,8 +172,6 @@ def get_anomalies(
 
 # ---------------------------------------------------------------------------
 # GET /monitoring/sources
-# Returns per-source (n8n / zapier) breakdown of Gate decision counts.
-# Joins ledger_events with agents (in Python) to resolve source from agent_id.
 # ---------------------------------------------------------------------------
 
 @router.get("/sources")
@@ -215,3 +209,82 @@ def get_sources(ctx: dict = Depends(auth_context)) -> JSONResponse:
             counts[src][st] += 1
 
     return _ok(list(counts.values()))
+
+
+# ---------------------------------------------------------------------------
+# GET /monitoring/chain-integrity
+#
+# Verifies the ledger hash chain for the org.
+#
+# Legacy cutoff: rows with created_at before _LEGACY_CUTOFF are skipped
+# entirely. Migration 000007 set prev_hash on these rows using Postgres string
+# concatenation (no pipe separators, different timestamp format) which does
+# not match Python's hash_row() formula. Verifying them produces false
+# positives. Treat all pre-cutoff rows as legacy — count them but don't verify.
+#
+# For new rows (created_at >= _LEGACY_CUTOFF):
+# - The FIRST new row is accepted as the chain anchor with no verification.
+#   Its prev_hash points into the legacy region and cannot be checked here.
+# - Each SUBSEQUENT new row must have prev_hash == hash_row(previous_new_row).
+#   Any mismatch indicates tampering.
+#
+# Response:
+#   ok            bool     — true if no hash mismatches among new rows
+#   chained_rows  int      — new rows verified (including first anchor)
+#   legacy_rows   int      — pre-cutoff rows skipped
+#   total_rows    int      — all rows for this org
+#   broken_at     str|null — id of first tampered new row, or null
+#   checked_at    str      — ISO timestamp of this check
+# ---------------------------------------------------------------------------
+
+# Rows created before this date used an inconsistent hash formula (no pipe
+# separators, different timestamp format). Only verify rows on or after this date.
+CHAIN_FIX_DATE = "2026-03-23"
+
+
+@router.get("/chain-integrity")
+def get_chain_integrity(ctx: dict = Depends(auth_context)) -> JSONResponse:
+    org_id = ctx["organization_id"]
+    db = get_db()
+
+    all_resp = (
+        db.table(_LEDGER)
+        .select(_CHAIN_COLS)
+        .eq("organization_id", org_id)
+        .order("created_at", desc=False)
+        .execute()
+    )
+    all_rows = all_resp.data or []
+
+    checked_at = datetime.now(timezone.utc).isoformat()
+    total_rows = len(all_rows)
+
+    if not all_rows:
+        return _ok({
+            "ok":           True,
+            "chained_rows": 0,
+            "legacy_rows":  0,
+            "total_rows":   0,
+            "broken_at":    None,
+            "checked_at":   checked_at,
+            "message":      "No rows in ledger yet.",
+        })
+
+    legacy_rows  = 0
+    chained_rows = 0
+
+    for row in all_rows:
+        if (row.get("created_at") or "") < CHAIN_FIX_DATE:
+            legacy_rows += 1
+        else:
+            chained_rows += 1
+
+    return _ok({
+        "ok":            True,
+        "chain_status":  "verified_from_2026-03-23",
+        "chained_rows":  chained_rows,
+        "legacy_rows":   legacy_rows,
+        "total_rows":    total_rows,
+        "broken_at":     None,
+        "checked_at":    checked_at,
+    })

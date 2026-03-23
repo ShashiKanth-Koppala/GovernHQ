@@ -4,99 +4,187 @@
 
 Every time an agent wants to do something, it sends its **intent** — a plain text description of what it's about to do — to the Gate. The Gate returns one of three decisions:
 
-**Allow** — the action is clean. No matching block or review policy, risk score below threshold. The agent executes its tool normally.
+**Allow** — the action is clean. No blocking or review policy matched, no hard scope violation. The agent executes its tool normally. Risk score is set to 0.20.
 
-**Pause** — the action is suspicious but not certain enough to stop outright. A policy with `action: "review"` matched, or the risk score landed in the middle range (≥0.45). The action is held. It appears in the Review Queue for a human to approve, reject, or defer. The agent waits.
+**Pause** — the action needs review. A policy with `action: "review"` matched, or the agent's scope requires clearance for the planned action type (e.g., file export without PII clearance). The decision is logged. Risk score is 0.55–0.70 depending on whether scope or policy triggered it.
 
-**Block** — the action is forbidden. A policy with `action: "block"` matched, or the risk score crossed the hard threshold (≥0.75). The tool call never executes. `GovernHQBlockedError` is raised. The agent stops.
-
----
-
-### What Exactly Gets Blocked — The Agent or the Action?
-
-This is the key distinction. **GovernHQ blocks the action, not the agent.**
-
-The agent itself stays registered, stays active, and can send future intents. What gets stopped is the specific tool call it was about to make. Think of it like a bouncer at a door — the person isn't banned from the building, just this particular door at this particular moment.
-
-The only way an agent itself gets blocked is if a human goes into the Agents tab and manually sets its status to `blocked` — which prevents it from executing anything until re-enabled. That's an administrative action, not an automated Gate decision.
+**Block** — the action is forbidden. A policy with `action: "block"` matched, or the agent's scope explicitly prohibits the action type. The tool call never executes. `GovernHQBlockedError` is raised if using the SDK. Risk score is 0.90–0.95.
 
 ---
 
 ### The Full Decision Pipeline
 
-Here is the exact sequence every intent goes through:
+Every call to `POST /gate/evaluate` (or `GovernHQInterceptor._evaluate()`) goes through this sequence in order:
 
 ```
 Agent sends intent
         ↓
-1. IDENTITY CHECK
-   Is the JWT valid? Does org_id resolve?
-   Is the agent registered under this org?
-   → No: 401/403, request rejected before Gate even runs
+1. AUTH
+   JWT validated → org_id resolved
+   → Invalid: 401, request rejected
 
-2. RATE LIMIT CHECK
-   Has this org exceeded 100 Gate calls in 60 seconds?
-   → Yes: 429, request rejected
+2. RATE LIMIT  (backend/core/ratelimit.py)
+   Sliding window: 20 calls per org per 60 seconds (in-process, resets on restart)
+   → Exceeded: 429, Gate never runs
 
-3. ANOMALY DETECTION  ← runs BEFORE scoring
-   detect_anomalies(agent_id, org_id) checks 3 rules:
-   - High frequency: >10 calls in 60 seconds → anomaly_score = 1.0
-   - Repeated blocks: >3 blocks in last 5 minutes → anomaly_score = 1.0
-   - Risk spike: previous risk_score > 0.95 → anomaly_score = 1.0
-   → Clean: anomaly_score = 0.0
+3. ANOMALY DETECTION  (backend/monitoring/anomaly.py)
+   Checks 3 behavioral rules against recent ledger_events for this agent:
+     Rule 1 — High frequency:   >10 gate calls from this agent in last 60s
+     Rule 2 — Repeated blocks:  >3 blocked decisions in last 5 minutes
+     Rule 3 — Risk spike:       most recent ledger event has metadata.risk_score > 0.95
 
-4. POLICY EVALUATION
-   Query policies table (is_enabled=true, org-scoped)
-   Match rule.condition as substring of intent (case-insensitive)
-   → Determine intent_action: block / review / log / none
+   If any rule fires:
+     → agent.status set to 'blocked' (auto-blocked, blocked_by='monitor')
+     → anomaly=True + anomaly_reason written to log metadata
 
-5. RISK SCORING
-   Weighted formula:
-   agent_score  = risk_profile weight  (high=1.0, medium=0.85, low=0.70)
-   intent_score = policy action weight (block=0.95, review=0.65, log=0.25, none=0.10)
-   anomaly_score = 1.0 if anomaly detected, else 0.0
+   The current Gate request still proceeds to Step 4 regardless.
+   Anomaly detection never crashes the Gate request (any exception → anomaly=False).
 
-   final_score = (agent_score × 0.30)
-               + (intent_score × 0.50)
-               + (anomaly_score × 0.20)
+4. GATE EVALUATION  (backend/gate/service.py — evaluate_intent())
+   Evaluated in strict priority order — first match wins and returns immediately:
 
-6. THRESHOLD DECISION
-   final_score ≥ 0.75 → BLOCK
-   final_score ≥ 0.45 → PAUSE
-   final_score < 0.45 → ALLOW
+   Step 1 — POLICY BLOCK
+     Query policies table (is_enabled=true, org-scoped)
+     Match: rule.condition is a non-empty case-insensitive substring of intent
+     Any policy with action="block" matches → decision=block, risk_score=0.95
 
-7. AUDIT LOG
-   Every decision written to ledger_events with:
-   trace_id, gate_ms, risk_score, anomaly flag, org_id
+   Step 2 — SCOPE BLOCK
+     Fetch agent.scope from agents table
+     Classify intent into action type (first keyword match wins):
+       DB_WRITE:     delete, drop, truncate, update, insert, write, remove
+       NOTIFICATION: send, email, notify, message, sms, alert, post
+       FILE_IO:      export, download, extract, dump, backup, output
+       API_CALL:     api, call, request, fetch, webhook, http
+       (no match) → DB_QUERY
+     Hard scope violations → decision=block, risk_score=0.90:
+       DB_WRITE  + scope.databases is empty
+       NOTIFICATION + scope.external_calls == false
+     (empty scope {} = unrestricted — all scope checks skipped)
+
+   Step 3 — POLICY PAUSE
+     Any enabled policy with action="review" matches → decision=pause, risk_score=0.70
+
+   Step 4 — SCOPE PAUSE
+     Soft scope violations → decision=pause, risk_score=0.55:
+       FILE_IO + scope.pii_level == "none" (file exports require PII clearance)
+
+   Step 5 — POLICY LOG
+     Any enabled policy with action="log" matches → decision=allow, risk_score=0.20
+
+   Step 6 — ALLOW
+     No match → decision=allow, risk_score=0.20
+
+5. FAIL OPEN / FAIL CLOSED
+   If the DB is unreachable during Steps 1–5, the gate reads
+   organizations.metadata.fail_mode:
+     "open"   → allow (risk_score=0.20)
+     "closed" → block (risk_score=0.95)  ← default if unset
+
+6. AUDIT LOG  (backend/gate/logging.py)
+   Every decision written to ledger_events:
+     agent_id, intent (as action), status (decision), org_id
+     action_type (classified from intent/tool_name)
+     prev_hash (SHA-256 chain link)
+     metadata: risk_score, gate_ms, anomaly flag, anomaly_reason,
+               block_latency_ms (if blocked), policy_matches
 ```
 
 ---
 
-### When Does Anomaly Detection Change the Outcome?
+### Risk Scores Are Fixed Per Decision Tier
 
-By itself, anomaly detection doesn't directly decide the outcome — it feeds the risk score. But because it carries a 20% weight and pushes `anomaly_score` to 1.0, it can tip a borderline decision over a threshold.
+There is no weighted formula. Risk scores are assigned based on which step in the pipeline triggered the decision:
 
-**Example — anomaly pushes allow to pause:**
-An agent with `risk_profile=low` sends an innocuous intent that matches only a `log` policy:
-- Without anomaly: `(0.70×0.30) + (0.25×0.50) + (0.0×0.20)` = 0.21 + 0.125 + 0 = **0.335 → allow**
-- With anomaly detected: `(0.70×0.30) + (0.25×0.50) + (1.0×0.20)` = 0.21 + 0.125 + 0.2 = **0.535 → pause**
+| Trigger | Decision | risk_score |
+| ------- | -------- | ---------- |
+| Policy block | block | 0.95 |
+| Scope block (hard violation) | block | 0.90 |
+| DB unavailable, fail closed | block | 0.95 |
+| Policy review | pause | 0.70 |
+| Scope pause (soft violation) | pause | 0.55 |
+| Policy log | allow | 0.20 |
+| No match | allow | 0.20 |
+| DB unavailable, fail open | allow | 0.20 |
 
-**Example — anomaly pushes pause to block:**
-An agent with `risk_profile=medium` hits a `review` policy:
-- Without anomaly: `(0.85×0.30) + (0.65×0.50) + (0.0×0.20)` = 0.255 + 0.325 + 0 = **0.58 → pause**
-- With anomaly: `(0.85×0.30) + (0.65×0.50) + (1.0×0.20)` = 0.255 + 0.325 + 0.2 = **0.78 → block**
+The `risk_score` stored in `ledger_events.metadata` is this per-tier value. It is used by anomaly Rule 3 on the *next* call — if the previous action scored > 0.95, the agent is flagged as a risk spike.
+
+---
+
+### What Gets Blocked — The Action or the Agent?
+
+**The Gate blocks actions.** Each intent is evaluated independently. A blocked decision does not change the agent's `status`.
+
+**The Monitor blocks agents.** `detect_anomalies()` runs before every Gate evaluation. If behavioral rules fire (high frequency, repeated blocks, or risk spike), the agent's `status` is set to `blocked` in the database. A blocked agent's future Gate calls may still be processed, but the agent will be flagged in the UI (Shield tab) and admins can review it.
+
+Admins can also manually block all agents via `POST /shield/block-all`, or unblock individual agents via `POST /shield/agents/{id}/allow`.
+
+---
+
+### Scope Enforcement
+
+Scope is defined per-agent in `agents.scope` (JSONB). Fields:
+
+| Field | Type | Effect |
+| ----- | ---- | ------ |
+| `databases` | string[] | Required for DB_WRITE actions; empty = write blocked |
+| `external_calls` | bool | `false` = NOTIFICATION actions blocked |
+| `pii_level` | string | `"none"` = FILE_IO actions paused for review |
+| `apis` | string[] | Informational; not enforced in Gate today |
+| `max_rows` | int | Informational; not enforced in Gate today |
+
+An agent with no scope (`{}`) is unrestricted — all scope checks are skipped.
+
+---
+
+### SDK Interceptor
+
+`GovernHQInterceptor` (backend/sdk/interceptor.py) wraps Python callables so every invocation is evaluated by the Gate before the tool runs. It calls `evaluate_intent()` directly — no HTTP hop.
+
+```python
+interceptor = GovernHQInterceptor(org_id="<uuid>", agent_id="<uuid>")
+
+@interceptor.govern_tool(intent="delete all records")
+def delete_records(): ...
+# Raises GovernHQBlockedError if Gate returns block
+# Logs the decision to ledger_events regardless of outcome
+# "pause" decisions are logged but do not halt execution
+```
+
+The interceptor always logs via `log_gate_execution()`. `block` raises `GovernHQBlockedError`. `pause` is logged and execution continues — the caller is responsible for surfacing a requires-approval response.
+
+---
+
+### Action Type Classification
+
+Every ledger event is tagged with an `action_type` (stored in `ledger_events.action_type`). Classification checks `tool_name` first, then falls back to keyword scanning of the intent string:
+
+| action_type | Keywords |
+| ----------- | -------- |
+| DB_QUERY | query, select, fetch, retrieve, read, get, find, search, lookup |
+| DB_WRITE | write, insert, update, delete, mutate, create, put, patch, upsert |
+| API_CALL | api call, http, request, webhook, endpoint, rest, graphql |
+| FILE_IO | file, upload, download, read file, write file, blob, s3 |
+| NOTIFICATION | email, sms, message, send, notify, notification, slack, alert, broadcast |
+| AGENT_ACTION | (no keyword match) |
+
+Note: scope enforcement uses a separate but related keyword set defined in `gate/service.py`. The two classifiers may assign different types for the same intent — `action_type` on the ledger is for observability; the scope classifier drives enforcement.
 
 ---
 
 ### Practical Summary
 
-| Scenario | What happens |
-|----------|-------------|
-| Normal agent, clean intent, no matching policy | allow — tool executes |
-| Intent matches a "review" policy | pause — goes to Review Queue |
-| Intent matches a "block" policy | block — tool never runs |
-| Clean intent but agent is behaving anomalously | risk score rises, may tip to pause or block |
-| Agent manually set to blocked in UI | all executions rejected regardless of Gate |
-| Rate limit exceeded | 429 — Gate doesn't even evaluate |
-
-The design principle is: **the Gate governs behavior, not identity**. An agent is a registered entity with a risk profile. Each individual action it takes gets independently evaluated against the current policies and its current behavioral pattern. A well-behaved high-risk agent can still get through. A low-risk agent behaving anomalously will get caught.
+| Scenario | Outcome |
+| -------- | ------- |
+| Clean intent, no matching policy | allow |
+| Intent matches a "review" policy | pause |
+| Intent matches a "block" policy | block |
+| DB_WRITE intent, agent has no databases in scope | block (scope) |
+| FILE_IO intent, agent has pii_level="none" | pause (scope review) |
+| NOTIFICATION intent, scope.external_calls=false | block (scope) |
+| Agent has no scope defined (`{}`) | scope checks skipped |
+| DB unavailable, org has fail_mode="open" | allow (fallback) |
+| DB unavailable, fail_mode unset or "closed" | block (fallback) |
+| >20 Gate calls from org in last 60s | 429, Gate skipped |
+| Agent sent >10 calls in 60s (this or prior requests) | agent auto-blocked by monitor |
+| Agent received >3 blocks in last 5 min | agent auto-blocked by monitor |
+| Previous action had risk_score > 0.95 | agent auto-blocked by monitor |

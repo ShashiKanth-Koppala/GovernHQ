@@ -8,29 +8,32 @@ For multi-process deployments replace with a Redis-backed counter.
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import defaultdict
 
+logger = logging.getLogger(__name__)
+
 _WINDOW_SECONDS = 60
-_MAX_CALLS = 100
+_MAX_CALLS = 20
 
 # {org_id: [timestamp, ...]}  — sorted ascending, pruned on each check
 _windows: dict[str, list[float]] = defaultdict(list)
 
 
+
 def check_rate_limit(org_id: str) -> bool:
-    """
-    Return True if the org is within the rate limit and record this call.
-    Return False if the limit has been exceeded (caller should return 429).
-    """
+    key = str(org_id)
     now = time.monotonic()
     cutoff = now - _WINDOW_SECONDS
 
-    calls = _windows[org_id]
+    calls = _windows[key]
 
-    # Prune timestamps outside the window
+    # Prune FIRST, then log and check
     while calls and calls[0] < cutoff:
         calls.pop(0)
+
+    logger.warning(f"RATELIMIT: org={key} window_count={len(calls)}")
 
     if len(calls) >= _MAX_CALLS:
         return False

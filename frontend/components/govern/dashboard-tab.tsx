@@ -33,6 +33,7 @@ interface LedgerRow {
   status: "allow" | "pause" | "block"
   metadata: Record<string, unknown> | null
   created_at: string
+  action_type: string | null
 }
 
 interface Metrics {
@@ -135,6 +136,9 @@ export function DashboardTab() {
                 time={relativeTime(row.created_at)}
               >
                 <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  {row.action_type && (
+                    <p className="text-xs font-mono">{row.action_type}</p>
+                  )}
                   {row.status === "allow" && (
                     <>
                       <p>Reasoning approved. Action executed.</p>
@@ -144,14 +148,28 @@ export function DashboardTab() {
                   {row.status === "block" && (
                     <>
                       <p>Action blocked by Gate policy.</p>
+                      {typeof row.metadata?.risk_score === "number" && (
+                        <p className="text-xs">Risk score: <span className="text-govern-red font-mono">{row.metadata.risk_score}</span></p>
+                      )}
+                      {typeof row.metadata?.block_latency_ms === "number" && (
+                        <p className="text-xs">Block latency: {row.metadata.block_latency_ms}ms</p>
+                      )}
+                      {Array.isArray(row.metadata?.policy_matches) && (row.metadata.policy_matches as string[]).length > 0 && (
+                        <p className="text-xs">Policy: {(row.metadata.policy_matches as string[]).join(", ")}</p>
+                      )}
                       <p className="text-xs italic mt-1">Action never executed. Agent still running.</p>
                     </>
                   )}
                   {row.status === "pause" && (
                     <>
                       <p>Action paused: requires human approval.</p>
+                      {typeof row.metadata?.risk_score === "number" && (
+                        <p className="text-xs">Risk score: <span className="text-govern-amber font-mono">{row.metadata.risk_score}</span></p>
+                      )}
+                      {Array.isArray(row.metadata?.policy_matches) && (row.metadata.policy_matches as string[]).length > 0 && (
+                        <p className="text-xs">Policy: {(row.metadata.policy_matches as string[]).join(", ")}</p>
+                      )}
                       <div className="flex items-center gap-2 mt-1">
-                        {/* TODO: implement allow/block action endpoints */}
                         <Button
                           type="button"
                           variant="outline"
@@ -172,6 +190,12 @@ export function DashboardTab() {
                         </Button>
                       </div>
                     </>
+                  )}
+                  {row.metadata?.anomaly_reason && (
+                    <p className="text-xs text-govern-amber mt-1">Anomaly: {String(row.metadata.anomaly_reason)}</p>
+                  )}
+                  {row.metadata?.trace_id && (
+                    <p className="text-xs font-mono text-muted-foreground/60">{String(row.metadata.trace_id)}</p>
                   )}
                 </div>
               </CollapsibleRow>

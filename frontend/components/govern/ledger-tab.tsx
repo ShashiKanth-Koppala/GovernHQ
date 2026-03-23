@@ -1,7 +1,7 @@
 "use client"
 
 import { Fragment, useCallback, useEffect, useState } from "react"
-import { Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, ShieldCheck, ShieldAlert } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -51,6 +51,8 @@ interface LedgerRow {
   metadata: Record<string, unknown> | null
   created_at: string
   organization_id: string
+  action_type: string | null
+  prev_hash: string | null
 }
 
 interface Metrics {
@@ -61,6 +63,17 @@ interface Metrics {
   agents_monitored: number
   avg_gate_ms: number | null
 }
+
+interface ChainIntegrity {
+  ok: boolean
+  chained_rows: number
+  total_rows: number
+  broken_at: string | null
+  checked_at: string
+  message?: string
+}
+
+const ACTION_TYPES = ["DB_QUERY", "DB_WRITE", "API_CALL", "FILE_IO", "NOTIFICATION", "AGENT_ACTION"] as const
 
 function dbStatusToStatus(s: string): Status {
   if (s === "allow") return "allowed"
@@ -77,32 +90,50 @@ function formatTime(iso: string): string {
   }
 }
 
+function formatCheckedAt(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString()
+  } catch {
+    return iso
+  }
+}
+
 const LIMIT = 20
 
 export function LedgerTab() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "allow" | "pause" | "block">("all")
+  const [typeFilter, setTypeFilter] = useState<string>("all-types")
   const [offset, setOffset] = useState(0)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [rows, setRows] = useState<LedgerRow[]>([])
   const [total, setTotal] = useState(0)
   const [metrics, setMetrics] = useState<Metrics | null>(null)
+  const [chain, setChain] = useState<ChainIntegrity | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchData = useCallback(async (status: string, off: number) => {
+  const fetchData = useCallback(async (
+    status: string,
+    off: number,
+    actionType: string,
+  ) => {
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams({ limit: String(LIMIT), offset: String(off) })
       if (status !== "all") params.set("status", status)
-      const [ledgerRes, metricsRes] = await Promise.all([
+      if (actionType !== "all-types") params.set("action_type", actionType)
+
+      const [ledgerRes, metricsRes, chainRes] = await Promise.all([
         apiFetch(`/monitoring/ledger?${params}`),
         apiFetch("/monitoring/metrics"),
+        apiFetch("/monitoring/chain-integrity"),
       ])
       setRows(ledgerRes.data.rows)
       setTotal(ledgerRes.data.total)
       setMetrics(metricsRes.data)
+      setChain(chainRes.data)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load")
     } finally {
@@ -111,11 +142,17 @@ export function LedgerTab() {
   }, [])
 
   useEffect(() => {
-    fetchData(statusFilter, offset)
-  }, [fetchData, statusFilter, offset])
+    fetchData(statusFilter, offset, typeFilter)
+  }, [fetchData, statusFilter, offset, typeFilter])
 
   function handleStatusChange(val: string) {
     setStatusFilter(val as "all" | "allow" | "pause" | "block")
+    setOffset(0)
+    setExpandedRow(null)
+  }
+
+  function handleTypeChange(val: string) {
+    setTypeFilter(val)
     setOffset(0)
     setExpandedRow(null)
   }
@@ -156,13 +193,15 @@ export function LedgerTab() {
               <SelectItem value="all-agents">All Agents</SelectItem>
             </SelectContent>
           </Select>
-          {/* TODO: no type column in ledger_events — filter is UI-only placeholder */}
-          <Select defaultValue="all-types">
-            <SelectTrigger className="bg-secondary border-border text-foreground w-[130px]">
+          <Select value={typeFilter} onValueChange={handleTypeChange}>
+            <SelectTrigger className="bg-secondary border-border text-foreground w-[150px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-card border-border">
               <SelectItem value="all-types">All Types</SelectItem>
+              {ACTION_TYPES.map((t) => (
+                <SelectItem key={t} value={t}>{t.replace("_", " ")}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={handleStatusChange}>
@@ -227,8 +266,9 @@ export function LedgerTab() {
                     <TableCell className="font-mono font-semibold text-sm text-foreground">
                       {row.agent_id.slice(0, 8)}
                     </TableCell>
-                    {/* Type not stored in ledger_events */}
-                    <TableCell className="text-xs text-muted-foreground font-mono">—</TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-mono">
+                      {row.action_type ?? "—"}
+                    </TableCell>
                     <TableCell className="text-sm text-foreground max-w-[300px] truncate">
                       {`"${row.action}"`}
                     </TableCell>
@@ -252,8 +292,19 @@ export function LedgerTab() {
                             <p>
                               <span className="text-foreground font-medium">Decision:</span> {row.status}
                             </p>
+                            {row.action_type && (
+                              <p>
+                                <span className="text-foreground font-medium">Type:</span>{" "}
+                                <span className="font-mono">{row.action_type}</span>
+                              </p>
+                            )}
                             {typeof gateMs === "number" && (
                               <p className="text-xs">Gate: {gateMs}ms</p>
+                            )}
+                            {row.prev_hash && (
+                              <p className="text-xs font-mono text-muted-foreground/60">
+                                prev: {row.prev_hash.slice(0, 16)}…
+                              </p>
                             )}
                             {row.status === "pause" && (
                               <div className="flex items-center gap-2 mt-1">
@@ -297,6 +348,7 @@ export function LedgerTab() {
         </span>
         <div className="flex items-center gap-2">
           <Button
+            type="button"
             variant="outline"
             size="sm"
             className="border-border text-muted-foreground bg-transparent hover:bg-secondary"
@@ -306,6 +358,7 @@ export function LedgerTab() {
             <ChevronLeft className="size-4" />
           </Button>
           <Button
+            type="button"
             variant="outline"
             size="sm"
             className="border-border text-muted-foreground bg-transparent hover:bg-secondary"
@@ -315,6 +368,33 @@ export function LedgerTab() {
             <ChevronRight className="size-4" />
           </Button>
         </div>
+      </div>
+
+      {/* Chain Integrity Indicator */}
+      <div className="h-px bg-border" />
+      <div className="flex items-center justify-between text-xs text-muted-foreground pb-2">
+        {chain === null ? (
+          <span>Checking chain integrity…</span>
+        ) : chain.chained_rows === 0 ? (
+          <span className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-muted-foreground" />
+            Chain not yet established — {chain.total_rows} unchained rows (migration 000006 required)
+          </span>
+        ) : chain.ok ? (
+          <span className="flex items-center gap-2 text-govern-green">
+            <ShieldCheck className="size-3.5" />
+            Chain intact — {chain.chained_rows} of {chain.total_rows} rows verified
+          </span>
+        ) : (
+          <span className="flex items-center gap-2 text-govern-red">
+            <ShieldAlert className="size-3.5" />
+            Chain broken — tamper detected at row {chain.broken_at?.slice(0, 8)}
+            {chain.chained_rows > 0 && ` (${chain.chained_rows} rows checked)`}
+          </span>
+        )}
+        {chain && chain.checked_at && (
+          <span>Checked {formatCheckedAt(chain.checked_at)}</span>
+        )}
       </div>
     </div>
   )
