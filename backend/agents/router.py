@@ -269,3 +269,45 @@ def execute_agent(
             "log_id": log_row["id"] if log_row and "id" in log_row else None,
         }
     )
+
+@router.get("/{agent_id}/stats")
+def get_agent_stats(agent_id: str, org_id: str = Depends(get_org_id)) -> JSONResponse:
+    # Verify agent belongs to org
+    agent = (
+        _db.table(_TABLE)
+        .select("id, name")
+        .eq("id", agent_id)
+        .eq("organization_id", org_id)
+        .maybe_single()
+        .execute()
+    )
+    if not agent.data:
+        return _err("Agent not found", 404)
+
+    # Fetch all ledger events for this agent
+    events = (
+        _db.table("ledger_events")
+        .select("status, metadata")
+        .eq("agent_id", agent_id)
+        .execute()
+    )
+    rows = events.data or []
+
+    total = len(rows)
+    allowed = sum(1 for r in rows if r.get("status") == "allow")
+    blocked = sum(1 for r in rows if r.get("status") == "block")
+    paused = sum(1 for r in rows if r.get("status") == "pause")
+    anomalies = sum(1 for r in rows if isinstance(r.get("metadata"), dict) and r["metadata"].get("anomaly"))
+
+    gate_rate = round((allowed / total) * 100, 1) if total > 0 else 100.0
+    trust_score = max(0, min(100, 100 - (blocked * 2) - (anomalies * 5)))
+
+    return _ok({
+        "total": total,
+        "allowed": allowed,
+        "blocked": blocked,
+        "paused": paused,
+        "anomalies": anomalies,
+        "gate_rate": gate_rate,
+        "trust_score": trust_score,
+    })

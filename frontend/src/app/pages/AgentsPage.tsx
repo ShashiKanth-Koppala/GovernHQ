@@ -1,325 +1,226 @@
 import { Sidebar } from "../components/Sidebar";
 import { AgentCard } from "../components/AgentCard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { apiGet, apiPatch } from "@/lib/api";
 
 export function AgentsPage() {
+  const { token, isLoading } = useAuth();
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
   const [showIdentity, setShowIdentity] = useState<boolean>(true);
   const [showScope, setShowScope] = useState<boolean>(true);
   const [showRecentActions, setShowRecentActions] = useState<boolean>(true);
+  const [agents, setAgents] = useState<any[]>([]);
+  const [recentActions, setRecentActions] = useState<any[]>([]);
+  const [agentStats, setAgentStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const agents = [
-    {
-      name: 'ARIA-7X',
-      type: 'Data Retrieval Agent',
-      status: 'online',
-      identity: 'allowed',
-      trust: 97,
-      gateRate: 99.7,
-      blockedToday: 1,
-      totalActions: 1247,
-      allowed: 1198,
-      blocked: 42,
-      paused: 7,
-      description: 'Specialized in retrieving and processing claims data for daily operations.',
-      databases: 'claims_db, policy_db',
-      apis: 'Internal only',
-      piiAccess: 'Level 2 (masked SSN, visible name)',
-      maxRows: 500,
-      externalCalls: 'blocked',
-      reasoningSubmissions: 342,
-      lastActive: '2 min ago',
-      recentActions: [
-        { status: 'green', description: '"Retrieve pending claims for daily triage"', time: '2 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'red', description: '"Send claims data to external API"', time: '5 min ago', outcome: 'Action blocked: External calls not in scope for this agent.', detail: 'Action never executed. Agent still running.' },
-        { status: 'green', description: '"Generate triage priority ranking"', time: '12 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'green', description: '"Update claim #7721 status to reviewed"', time: '18 min ago', outcome: 'Reasoning approved. Action executed.' },
-      ],
-    },
-    {
-      name: 'SCOUT-3B',
-      type: 'Monitoring Agent',
-      status: 'online',
-      identity: 'allowed',
-      trust: 89,
-      gateRate: 94.2,
-      blockedToday: 3,
-      totalActions: 2104,
-      allowed: 2056,
-      blocked: 31,
-      paused: 17,
-      description: 'Monitors API traffic patterns and delivers compliance metrics.',
-      databases: 'claims_db, policy_db',
-      apis: 'Internal only',
-      piiAccess: 'Level 2 (masked SSN, visible name)',
-      maxRows: 500,
-      externalCalls: 'blocked',
-      reasoningSubmissions: 458,
-      lastActive: '1 min ago',
-      recentActions: [
-        { status: 'green', description: '"Retrieve pending claims for daily triage"', time: '2 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'red', description: '"Send claims data to external API"', time: '5 min ago', outcome: 'Action blocked: External calls not in scope for this agent.', detail: 'Action never executed. Agent still running.' },
-        { status: 'green', description: '"Generate triage priority ranking"', time: '12 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'green', description: '"Update claim #7721 status to reviewed"', time: '18 min ago', outcome: 'Reasoning approved. Action executed.' },
-      ],
-    },
-    {
-      name: 'NOVA-3',
-      type: 'Analytics Agent',
-      status: 'online',
-      identity: 'allowed',
-      trust: 92,
-      gateRate: 98.1,
-      blockedToday: 0,
-      totalActions: 956,
-      allowed: 924,
-      blocked: 19,
-      paused: 13,
-      description: 'Generates compliance summaries and analytical reports.',
-      databases: 'claims_db, policy_db',
-      apis: 'Internal only',
-      piiAccess: 'Level 2 (masked SSN, visible name)',
-      maxRows: 500,
-      externalCalls: 'blocked',
-      reasoningSubmissions: 267,
-      lastActive: '8 min ago',
-      recentActions: [
-        { status: 'green', description: '"Retrieve pending claims for daily triage"', time: '2 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'red', description: '"Send claims data to external API"', time: '5 min ago', outcome: 'Action blocked: External calls not in scope for this agent.', detail: 'Action never executed. Agent still running.' },
-        { status: 'green', description: '"Generate triage priority ranking"', time: '12 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'green', description: '"Update claim #7721 status to reviewed"', time: '18 min ago', outcome: 'Reasoning approved. Action executed.' },
-      ],
-    },
-    {
-      name: 'CORE-1',
-      type: 'System Agent',
-      status: 'online',
-      identity: 'allowed',
-      trust: 78,
-      gateRate: 88.4,
-      blockedToday: 5,
-      totalActions: 634,
-      allowed: 598,
-      blocked: 31,
-      paused: 5,
-      description: 'Handles critical system operations and billing management.',
-      databases: 'claims_db, policy_db',
-      apis: 'Internal only',
-      piiAccess: 'Level 2 (masked SSN, visible name)',
-      maxRows: 500,
-      externalCalls: 'blocked',
-      reasoningSubmissions: 189,
-      lastActive: '12 min ago',
-      recentActions: [
-        { status: 'green', description: '"Retrieve pending claims for daily triage"', time: '2 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'red', description: '"Send claims data to external API"', time: '5 min ago', outcome: 'Action blocked: External calls not in scope for this agent.', detail: 'Action never executed. Agent still running.' },
-        { status: 'green', description: '"Generate triage priority ranking"', time: '12 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'green', description: '"Update claim #7721 status to reviewed"', time: '18 min ago', outcome: 'Reasoning approved. Action executed.' },
-      ],
-    },
-    {
-      name: 'TEST-01',
-      type: 'Test Agent',
-      status: 'blocked',
-      identity: 'blocked',
-      trust: 61,
-      gateRate: 82.0,
-      blockedToday: 0,
-      totalActions: 156,
-      allowed: 98,
-      blocked: 52,
-      paused: 6,
-      description: 'Test agent for validation and experimental features.',
-      databases: 'claims_db, policy_db',
-      apis: 'Internal only',
-      piiAccess: 'Level 2 (masked SSN, visible name)',
-      maxRows: 500,
-      externalCalls: 'blocked',
-      reasoningSubmissions: 134,
-      lastActive: '25 min ago',
-      recentActions: [
-        { status: 'green', description: '"Retrieve pending claims for daily triage"', time: '2 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'red', description: '"Send claims data to external API"', time: '5 min ago', outcome: 'Action blocked: External calls not in scope for this agent.', detail: 'Action never executed. Agent still running.' },
-        { status: 'green', description: '"Generate triage priority ranking"', time: '12 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'green', description: '"Update claim #7721 status to reviewed"', time: '18 min ago', outcome: 'Reasoning approved. Action executed.' },
-      ],
-    },
-    {
-      name: 'HELPER-2A',
-      type: 'Data Export Agent',
-      status: 'blocked',
-      identity: 'blocked',
-      trust: 34,
-      gateRate: 71.8,
-      blockedToday: 8,
-      totalActions: 823,
-      allowed: 789,
-      blocked: 28,
-      paused: 6,
-      description: 'Manages customer record exports and external data transfers.',
-      databases: 'claims_db, policy_db',
-      apis: 'Internal only',
-      piiAccess: 'Level 2 (masked SSN, visible name)',
-      maxRows: 500,
-      externalCalls: 'blocked',
-      reasoningSubmissions: 298,
-      lastActive: '5 min ago',
-      recentActions: [
-        { status: 'green', description: '"Retrieve pending claims for daily triage"', time: '2 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'red', description: '"Send claims data to external API"', time: '5 min ago', outcome: 'Action blocked: External calls not in scope for this agent.', detail: 'Action never executed. Agent still running.' },
-        { status: 'green', description: '"Generate triage priority ranking"', time: '12 min ago', outcome: 'Reasoning approved. Action executed.' },
-        { status: 'green', description: '"Update claim #7721 status to reviewed"', time: '18 min ago', outcome: 'Reasoning approved. Action executed.' },
-      ],
-    },
-    {
-      name: 'GHOST-X9',
-      type: 'Unverified Agent',
-      status: 'unverified',
-      identity: 'blocked',
-      trust: null,
-      gateRate: null,
-      blockedToday: null,
-      totalActions: 0,
-      allowed: 0,
-      blocked: 0,
-      paused: 0,
-      description: 'Unverified agent detected in system. Requires authorization.',
-      databases: 'Unknown',
-      apis: 'Unknown',
-      piiAccess: 'Unknown',
-      maxRows: null,
-      externalCalls: 'blocked',
-      reasoningSubmissions: 0,
-      lastActive: 'Never',
-      recentActions: [],
-    },
-  ];
+const [allStats, setAllStats] = useState<Record<string, any>>({});
+
+useEffect(() => {
+  if (!token || isLoading) return;
+  apiGet('/agents', token).then(async res => {
+    if (res.data) {
+      setAgents(res.data);
+      // Fetch stats for each agent
+      const statsMap: Record<string, any> = {};
+      await Promise.all(res.data.map(async (agent: any) => {
+        const s = await apiGet(`/agents/${agent.id}/stats`, token);
+        if (s.data) statsMap[agent.id] = s.data;
+        setAllStats({...statsMap});
+      }));
+      setAllStats(statsMap);
+    }
+    setLoading(false);
+  });
+}, [token, isLoading]);
+
+  // Reset when agent selection changes
+  useEffect(() => {
+    setAgentStats(null);
+    setRecentActions([]);
+  }, [selectedAgent]);
+
+  // Fetch stats and recent actions when agent selected
+  useEffect(() => {
+    if (selectedAgent === null || !token || isLoading || !agents[selectedAgent]) return;
+    const agentId = agents[selectedAgent].id;
+
+    apiGet(`/monitoring/ledger?agent_id=${agentId}&limit=5`, token).then(res => {
+      if (res.data?.rows) {
+        setRecentActions(res.data.rows.map((row: any) => ({
+          status: row.status === 'allow' ? 'green' : row.status === 'block' ? 'red' : 'orange',
+          description: `"${row.action}"`,
+          time: new Date(row.created_at).toLocaleTimeString(),
+          outcome: row.status === 'allow'
+            ? 'Reasoning approved. Action executed.'
+            : row.status === 'block'
+            ? 'Action blocked by policy.'
+            : 'Action paused for review.',
+          detail: row.status === 'block' ? 'Action never executed. Agent still running.' : null,
+        })));
+      }
+    });
+
+    apiGet(`/agents/${agentId}/stats`, token).then(res => {
+      if (res.data) setAgentStats(res.data);
+    });
+  }, [selectedAgent, agents, token, isLoading]);
+
+  const handleBlockAllow = async (agent: any) => {
+    if (!token) return;
+    const newStatus = agent.status === 'blocked' ? 'active' : 'blocked';
+    await apiPatch(`/agents/${agent.id}`, token, { status: newStatus });
+    const res = await apiGet('/agents', token);
+    if (res.data) setAgents(res.data);
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-gradient-to-br from-[#0a0b14] via-[#111827] to-[#0f1629] size-full rounded-[40px] flex items-center justify-center">
+        <p className="text-[#94a3b8]">Loading agents...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gradient-to-br from-[#0a0b14] via-[#111827] to-[#0f1629] border border-[#1e293b]/30 overflow-clip relative rounded-[40px] shadow-[0px_4px_90px_0px_rgba(0,0,0,0.5),0px_0px_100px_0px_rgba(59,130,246,0.1)] size-full backdrop-blur-xl" data-name="Agents">
-      {/* Sidebar */}
       <Sidebar activePage="agents" />
 
-      {/* Main Content Container */}
-      <div className={`absolute left-[101px] top-0 bottom-0 overflow-y-auto transition-all ${selectedAgent !== null ? 'right-[33%]' : 'right-0'
-        }`}>
+      <div className={`absolute left-[101px] top-0 bottom-0 overflow-y-auto transition-all ${selectedAgent !== null ? 'right-[33%]' : 'right-0'}`}>
         <div className="p-[56px] pl-[39px] pr-[32px] max-w-full">
-          {/* Header */}
           <h1 className="font-['Mulish:Bold',sans-serif] font-bold text-white text-[28px] mb-[12px] tracking-tight">Agents</h1>
           <p className="font-['Mulish:SemiBold',sans-serif] font-semibold text-[#94a3b8] text-[16px] mb-[32px]">
-            <span>13:17:25  </span>
             <span className="text-[#3b82f6] drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">•  LIVE</span>
           </p>
 
           {/* Stats Summary */}
           <div className="grid grid-cols-4 gap-[24px] mb-[32px]">
-            <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] shadow-[0px_8px_32px_0px_rgba(0,0,0,0.3)] backdrop-blur-xl p-[24px] hover:border-[#3b82f6]/50 transition-all">
-              <p className="font-['Mulish:SemiBold',sans-serif] font-semibold text-[#94a3b8] text-[14px] mb-[8px]">Total Agents</p>
-              <p className="font-['Mulish:Regular',sans-serif] font-normal text-white text-[36px]">{agents.length}</p>
+            <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] p-[24px] hover:border-[#3b82f6]/50 transition-all">
+              <p className="text-[#94a3b8] text-[14px] mb-[8px]">Total Agents</p>
+              <p className="text-white text-[36px]">{agents.length}</p>
             </div>
-            <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] shadow-[0px_8px_32px_0px_rgba(0,0,0,0.3)] backdrop-blur-xl p-[24px] hover:border-[#10b981]/50 transition-all">
-              <p className="font-['Mulish:SemiBold',sans-serif] font-semibold text-[#94a3b8] text-[14px] mb-[8px]">Online</p>
-              <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#10b981] text-[36px] drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]">{agents.filter(a => a.status === 'online').length}</p>
+            <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] p-[24px] hover:border-[#10b981]/50 transition-all">
+              <p className="text-[#94a3b8] text-[14px] mb-[8px]">Active</p>
+              <p className="text-[#10b981] text-[36px]">{agents.filter(a => a.status === 'active').length}</p>
             </div>
-            <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] shadow-[0px_8px_32px_0px_rgba(0,0,0,0.3)] backdrop-blur-xl p-[24px] hover:border-[#64748b]/50 transition-all">
-              <p className="font-['Mulish:SemiBold',sans-serif] font-semibold text-[#94a3b8] text-[14px] mb-[8px]">Idle</p>
-              <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#64748b] text-[36px]">{agents.filter(a => a.status === 'idle').length}</p>
+            <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] p-[24px] hover:border-[#ef4444]/50 transition-all">
+              <p className="text-[#94a3b8] text-[14px] mb-[8px]">Blocked</p>
+              <p className="text-[#ef4444] text-[36px]">{agents.filter(a => a.status === 'blocked').length}</p>
             </div>
-            <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] shadow-[0px_8px_32px_0px_rgba(0,0,0,0.3)] backdrop-blur-xl p-[24px] hover:border-[#8b5cf6]/50 transition-all">
-              <p className="font-['Mulish:SemiBold',sans-serif] font-semibold text-[#94a3b8] text-[14px] mb-[8px]">Total Actions</p>
-              <p className="font-['Mulish:Regular',sans-serif] font-normal text-white text-[36px]">{agents.reduce((sum, a) => sum + a.totalActions, 0).toLocaleString()}</p>
+            <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] p-[24px] hover:border-[#8b5cf6]/50 transition-all">
+              <p className="text-[#94a3b8] text-[14px] mb-[8px]">Sources</p>
+              <p className="text-white text-[36px]">{new Set(agents.map(a => a.source)).size}</p>
             </div>
           </div>
 
           {/* Agents List */}
-          <div className="grid grid-cols-2 gap-[20px]">
-            {agents.map((agent, index) => (
-              <AgentCard
-                key={index}
-                name={agent.name}
-                identity={agent.identity}
-                trust={agent.trust}
-                gateRate={agent.gateRate}
-                blockedToday={agent.blockedToday}
-                isSelected={selectedAgent === index}
-                onClick={() => setSelectedAgent(index)}
-              />
-            ))}
-          </div>
+          {agents.length === 0 ? (
+            <p className="text-[#94a3b8] text-[14px]">No agents registered yet.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-[20px]">
+              {agents.map((agent, index) => (
+                <AgentCard
+                  key={agent.id}
+                  name={agent.name}
+                  identity={agent.status === 'blocked' ? 'blocked' : 'allowed'}
+                  trust={allStats[agent.id]?.trust_score ?? null}
+                  gateRate={allStats[agent.id]?.gate_rate ?? null}
+                  blockedToday={allStats[agent.id]?.blocked ?? null}
+                  isSelected={selectedAgent === index}
+                  onClick={() => setSelectedAgent(index)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Right Sidebar - Agent Details */}
-      {selectedAgent !== null && (
+      {selectedAgent !== null && agents[selectedAgent] && (
         <div className="fixed right-0 top-0 bottom-0 w-1/3 bg-gradient-to-br from-[#1e293b] to-[#0f172a] border-l border-[#1e293b]/50 shadow-[-12px_0_48px_0_rgba(0,0,0,0.7)] backdrop-blur-xl z-50 overflow-y-auto">
-          {/* Ambient glow */}
           <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-[#a78bfa]/10 blur-[120px] rounded-full pointer-events-none" />
-
-          {/* Sidebar Content */}
           <div className="p-[48px] relative z-10">
-            {/* Agent Name Header with Status Dot */}
+
+            {/* Agent Name Header */}
             <div className="flex items-center gap-[12px] mb-[24px]">
-              <div className={`size-[12px] rounded-full ${agents[selectedAgent].identity === 'allowed'
+              <div className={`size-[12px] rounded-full ${agents[selectedAgent].status === 'active'
                 ? 'bg-[#10b981] shadow-[0_0_12px_rgba(16,185,129,0.6)]'
-                : 'bg-[#ef4444] shadow-[0_0_12px_rgba(239,68,68,0.6)]'
-                }`} />
-              <h2 className="font-['Mulish:Bold',sans-serif] font-bold text-white text-[24px] tracking-tight">{agents[selectedAgent].name}</h2>
+                : 'bg-[#ef4444] shadow-[0_0_12px_rgba(239,68,68,0.6)]'}`} />
+              <h2 className="font-bold text-white text-[24px] tracking-tight">{agents[selectedAgent].name}</h2>
             </div>
 
-            {/* Total Actions Box */}
-            <div className="bg-gradient-to-br from-[#3b82f6]/10 to-transparent border border-[#3b82f6]/30 rounded-[16px] p-[24px] mb-[24px] shadow-[0_0_20px_rgba(59,130,246,0.15)]">
-              <p className="font-['Mulish:SemiBold',sans-serif] font-semibold text-[#3b82f6] text-[12px] mb-[8px] uppercase tracking-wider">Total Actions</p>
-              <p className="font-['Mulish:Bold',sans-serif] font-bold text-white text-[40px] leading-none">{agents[selectedAgent].totalActions.toLocaleString()}</p>
+            {/* Source Badge */}
+            <div className="bg-gradient-to-br from-[#3b82f6]/10 to-transparent border border-[#3b82f6]/30 rounded-[16px] p-[24px] mb-[24px]">
+              <p className="text-[#3b82f6] text-[12px] mb-[8px] uppercase tracking-wider">Source</p>
+              <p className="font-bold text-white text-[28px]">{agents[selectedAgent].source?.toUpperCase() || '—'}</p>
             </div>
 
-            {/* Agent Description */}
+            {/* Risk Profile + Status */}
             <div className="bg-gradient-to-br from-[#1e293b]/40 to-[#0f172a]/20 border border-[#334155]/30 rounded-[12px] p-[20px] mb-[32px]">
-              <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#cbd5e1] text-[14px] leading-relaxed">{agents[selectedAgent].description}</p>
+              <div className="flex justify-between items-center">
+                <p className="text-[#94a3b8] text-[14px]">Risk Profile</p>
+                <p className={`text-[14px] font-semibold capitalize ${
+                  agents[selectedAgent].risk_profile === 'high' ? 'text-[#ef4444]' :
+                  agents[selectedAgent].risk_profile === 'medium' ? 'text-[#f59e0b]' :
+                  'text-[#10b981]'}`}>
+                  {agents[selectedAgent].risk_profile}
+                </p>
+              </div>
+              <div className="flex justify-between items-center mt-[12px]">
+                <p className="text-[#94a3b8] text-[14px]">Status</p>
+                <p className={`text-[14px] font-semibold capitalize ${
+                  agents[selectedAgent].status === 'active' ? 'text-[#10b981]' :
+                  agents[selectedAgent].status === 'blocked' ? 'text-[#ef4444]' :
+                  'text-[#f59e0b]'}`}>
+                  {agents[selectedAgent].status}
+                </p>
+              </div>
             </div>
 
             {/* IDENTITY Section */}
             <div className="mb-[24px]">
-              <button
-                onClick={() => setShowIdentity(!showIdentity)}
-                className="flex items-center gap-[8px] mb-[16px] w-full"
-              >
+              <button onClick={() => setShowIdentity(!showIdentity)} className="flex items-center gap-[8px] mb-[16px] w-full">
                 <svg className={`size-[16px] transition-transform ${showIdentity ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 16 16">
                   <path d="M6 12L10 8L6 4" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <p className="font-['Mulish:SemiBold',sans-serif] font-semibold text-[#94a3b8] text-[11px] uppercase tracking-wider">IDENTITY</p>
+                <p className="text-[#94a3b8] text-[11px] uppercase tracking-wider font-semibold">IDENTITY</p>
               </button>
-
               {showIdentity && (
                 <div className="space-y-[12px] ml-[24px]">
-                  {/* Identity */}
                   <div className="flex justify-between items-center">
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#94a3b8] text-[14px]">Identity:</p>
+                    <p className="text-[#94a3b8] text-[14px]">Agent ID:</p>
+                    <p className="text-white text-[12px] font-mono">{agents[selectedAgent].id?.slice(0, 8)}...</p>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[#94a3b8] text-[14px]">Identity:</p>
                     <div className="flex items-center gap-[8px]">
-                      <div className={`size-[8px] rounded-full ${agents[selectedAgent].identity === 'allowed'
-                        ? 'bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.6)]'
-                        : 'bg-[#ef4444] shadow-[0_0_8px_rgba(239,68,68,0.6)]'
-                        }`} />
-                      <p className="font-['Mulish:Regular',sans-serif] font-normal text-white text-[14px] capitalize">{agents[selectedAgent].identity}</p>
+                      <div className={`size-[8px] rounded-full ${agents[selectedAgent].status === 'active' ? 'bg-[#10b981]' : 'bg-[#ef4444]'}`} />
+                      <p className="text-white text-[14px] capitalize">{agents[selectedAgent].status === 'active' ? 'verified' : 'blocked'}</p>
                     </div>
                   </div>
-
-                  {/* Trust Score */}
                   <div className="flex justify-between items-center">
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#94a3b8] text-[14px]">Trust Score:</p>
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-white text-[14px]">{agents[selectedAgent].trust !== null ? `${agents[selectedAgent].trust} / 100` : '—'}</p>
+                    <p className="text-[#94a3b8] text-[14px]">Trust Score:</p>
+                    <p className={`text-[14px] font-semibold ${
+                      (agentStats?.trust_score ?? 100) >= 70 ? 'text-[#10b981]' :
+                      (agentStats?.trust_score ?? 100) >= 40 ? 'text-[#f59e0b]' : 'text-[#ef4444]'
+                    }`}>{agentStats ? `${agentStats.trust_score} / 100` : '—'}</p>
                   </div>
-
-                  {/* Gate Pass Rate */}
-                  <div className="flex justify-between items-start">
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#94a3b8] text-[14px]">Gate Pass Rate:</p>
-                    <div className="text-right">
-                      <p className="font-['Mulish:Regular',sans-serif] font-normal text-white text-[14px]">{agents[selectedAgent].gateRate !== null ? `${agents[selectedAgent].gateRate}%` : '—'}</p>
-                      {agents[selectedAgent].blockedToday !== null && agents[selectedAgent].reasoningSubmissions > 0 && (
-                        <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#64748b] text-[11px] mt-[4px]">
-                          ({agents[selectedAgent].blockedToday} action blocked out of {agents[selectedAgent].reasoningSubmissions} reasoning submissions today)
-                        </p>
-                      )}
-                    </div>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[#94a3b8] text-[14px]">Gate Rate:</p>
+                    <p className="text-white text-[14px]">{agentStats ? `${agentStats.gate_rate}%` : '—'}</p>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[#94a3b8] text-[14px]">Total Actions:</p>
+                    <p className="text-white text-[14px]">{agentStats ? agentStats.total : '—'}</p>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[#94a3b8] text-[14px]">Blocked:</p>
+                    <p className="text-[#ef4444] text-[14px]">{agentStats ? agentStats.blocked : '—'}</p>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[#94a3b8] text-[14px]">Anomalies:</p>
+                    <p className="text-[#f59e0b] text-[14px]">{agentStats ? agentStats.anomalies : '—'}</p>
                   </div>
                 </div>
               )}
@@ -327,48 +228,27 @@ export function AgentsPage() {
 
             {/* SCOPE Section */}
             <div className="mb-[24px]">
-              <button
-                onClick={() => setShowScope(!showScope)}
-                className="flex items-center gap-[8px] mb-[16px] w-full"
-              >
+              <button onClick={() => setShowScope(!showScope)} className="flex items-center gap-[8px] mb-[16px] w-full">
                 <svg className={`size-[16px] transition-transform ${showScope ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 16 16">
                   <path d="M6 12L10 8L6 4" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <p className="font-['Mulish:SemiBold',sans-serif] font-semibold text-[#94a3b8] text-[11px] uppercase tracking-wider">SCOPE</p>
+                <p className="text-[#94a3b8] text-[11px] uppercase tracking-wider font-semibold">SCOPE</p>
               </button>
-
               {showScope && (
                 <div className="space-y-[12px] ml-[24px]">
-                  {/* Databases */}
                   <div className="flex justify-between items-center">
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#94a3b8] text-[14px]">Databases:</p>
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-white text-[14px]">{agents[selectedAgent].databases}</p>
+                    <p className="text-[#94a3b8] text-[14px]">Source:</p>
+                    <p className="text-white text-[14px] capitalize">{agents[selectedAgent].source}</p>
                   </div>
-
-                  {/* APIs */}
                   <div className="flex justify-between items-center">
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#94a3b8] text-[14px]">APIs:</p>
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-white text-[14px]">{agents[selectedAgent].apis}</p>
+                    <p className="text-[#94a3b8] text-[14px]">Risk Profile:</p>
+                    <p className="text-white text-[14px] capitalize">{agents[selectedAgent].risk_profile}</p>
                   </div>
-
-                  {/* PII Access */}
                   <div className="flex justify-between items-center">
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#94a3b8] text-[14px]">PII Access:</p>
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-white text-[14px]">{agents[selectedAgent].piiAccess}</p>
-                  </div>
-
-                  {/* Max rows/query */}
-                  <div className="flex justify-between items-center">
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#94a3b8] text-[14px]">Max rows/query:</p>
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-white text-[14px]">{agents[selectedAgent].maxRows !== null ? agents[selectedAgent].maxRows : '—'}</p>
-                  </div>
-
-                  {/* External calls */}
-                  <div className="flex justify-between items-center">
-                    <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#94a3b8] text-[14px]">External calls:</p>
+                    <p className="text-[#94a3b8] text-[14px]">External calls:</p>
                     <div className="flex items-center gap-[8px]">
-                      <div className="size-[8px] rounded-full bg-[#ef4444] shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
-                      <p className="font-['Mulish:Regular',sans-serif] font-normal text-white text-[14px] capitalize">{agents[selectedAgent].externalCalls}</p>
+                      <div className="size-[8px] rounded-full bg-[#ef4444]" />
+                      <p className="text-white text-[14px]">blocked</p>
                     </div>
                   </div>
                 </div>
@@ -377,48 +257,28 @@ export function AgentsPage() {
 
             {/* RECENT ACTIONS Section */}
             <div className="mb-[32px]">
-              <button
-                onClick={() => setShowRecentActions(!showRecentActions)}
-                className="flex items-center gap-[8px] mb-[16px] w-full"
-              >
+              <button onClick={() => setShowRecentActions(!showRecentActions)} className="flex items-center gap-[8px] mb-[16px] w-full">
                 <svg className={`size-[16px] transition-transform ${showRecentActions ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 16 16">
                   <path d="M6 12L10 8L6 4" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <p className="font-['Mulish:SemiBold',sans-serif] font-semibold text-[#94a3b8] text-[11px] uppercase tracking-wider">RECENT ACTIONS</p>
+                <p className="text-[#94a3b8] text-[11px] uppercase tracking-wider font-semibold">RECENT ACTIONS</p>
               </button>
-
               {showRecentActions && (
                 <div className="space-y-[16px]">
-                  {agents[selectedAgent].recentActions.map((action, idx) => (
+                  {recentActions.length === 0 ? (
+                    <p className="text-[#64748b] text-[13px] ml-[24px]">No recent actions.</p>
+                  ) : recentActions.map((action, idx) => (
                     <div key={idx} className="border-b border-[#334155]/30 pb-[16px] last:border-0">
-                      {/* Action Header */}
-                      <div className="flex items-start justify-between mb-[8px]">
-                        <div className="flex items-start gap-[8px] flex-1">
-                          <div className={`size-[8px] rounded-full mt-[6px] flex-shrink-0 ${action.status === 'green'
-                            ? 'bg-[#10b981] shadow-[0_0_6px_rgba(16,185,129,0.6)]'
-                            : action.status === 'orange'
-                              ? 'bg-[#f59e0b] shadow-[0_0_6px_rgba(245,158,11,0.6)]'
-                              : 'bg-[#ef4444] shadow-[0_0_6px_rgba(239,68,68,0.6)]'
-                            }`} />
-                          <div className="flex-1">
-                            <p className="font-['Mulish:SemiBold',sans-serif] font-semibold text-white text-[14px]">{agents[selectedAgent].name}</p>
-                            <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#cbd5e1] text-[13px] mt-[2px]">{action.description}</p>
-                          </div>
+                      <div className="flex items-start gap-[8px]">
+                        <div className={`size-[8px] rounded-full mt-[6px] flex-shrink-0 ${
+                          action.status === 'green' ? 'bg-[#10b981]' :
+                          action.status === 'orange' ? 'bg-[#f59e0b]' : 'bg-[#ef4444]'}`} />
+                        <div className="flex-1">
+                          <p className="text-[#cbd5e1] text-[13px]">{action.description}</p>
+                          <p className="text-[#94a3b8] text-[12px] mt-[4px]">{action.outcome}</p>
+                          {action.detail && <p className="text-[#64748b] text-[11px] italic mt-[2px]">{action.detail}</p>}
+                          <p className="text-[#64748b] text-[11px] mt-[4px]">{action.time}</p>
                         </div>
-                        <div className="flex items-center gap-[4px] ml-[12px]">
-                          <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#64748b] text-[12px]">{action.time}</p>
-                          <svg className="size-[16px]" fill="none" viewBox="0 0 16 16">
-                            <path d="M6 12L10 8L6 4" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </div>
-                      </div>
-
-                      {/* Action Outcome */}
-                      <div className="ml-[16px]">
-                        <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#94a3b8] text-[13px]">{action.outcome}</p>
-                        {action.detail && (
-                          <p className="font-['Mulish:Regular',sans-serif] font-normal text-[#64748b] text-[12px] italic mt-[4px]">{action.detail}</p>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -428,12 +288,12 @@ export function AgentsPage() {
 
             {/* Block/Allow Agent Button */}
             <button
-              className={`w-full py-[12px] px-[24px] rounded-[8px] border-2 font-['Mulish:SemiBold',sans-serif] font-semibold text-[14px] uppercase tracking-wider transition-all ${agents[selectedAgent].identity === 'allowed'
-                ? 'border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/10'
-                : 'border-[#10b981] text-[#10b981] hover:bg-[#10b981]/10'
-                }`}
-            >
-              {agents[selectedAgent].identity === 'allowed' ? 'Block Agent' : 'Allow Agent'}
+              onClick={() => handleBlockAllow(agents[selectedAgent])}
+              className={`w-full py-[12px] px-[24px] rounded-[8px] border-2 font-semibold text-[14px] uppercase tracking-wider transition-all ${
+                agents[selectedAgent].status === 'active'
+                  ? 'border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444]/10'
+                  : 'border-[#10b981] text-[#10b981] hover:bg-[#10b981]/10'}`}>
+              {agents[selectedAgent].status === 'active' ? 'Block Agent' : 'Allow Agent'}
             </button>
           </div>
         </div>

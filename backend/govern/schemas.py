@@ -1,7 +1,7 @@
 from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
-DecisionLiteral = Literal["allow", "flag", "block"]
+DecisionLiteral = Literal["allow", "flag", "block", "pause"]
 
 class GovernEvaluateRequest(BaseModel):
     agent_id: str

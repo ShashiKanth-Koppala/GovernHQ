@@ -34,7 +34,8 @@ from pydantic import BaseModel
 from core.auth import get_db
 from gate.logging import log_gate_execution
 from gate.schemas import GateEvaluateRequest
-from gate.service import evaluate_intent
+from govern.service import process_evaluation
+from govern.schemas import GovernEvaluateRequest as GovernRequest
 
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 
@@ -140,18 +141,15 @@ def webhook_inbound(
         intent=body.intent,
         metadata={"source": body.source},
     )
-    gate_result = evaluate_intent(gate_payload, org_id=org_id)
+    govern_payload = GovernRequest(
+    agent_id=agent_id,
+    intent=body.intent,
+    metadata={"source": body.source},
+)
+    gate_result = process_evaluation(govern_payload, org_id=org_id)
 
-    # 5. Log to ledger
-    log_gate_execution(
-        agent_id=agent_id,
-        intent=body.intent,
-        decision=gate_result.decision,
-        metadata={"source": body.source},
-        org_id=org_id,
-    )
 
-    # 6. Return Gate decision
+    # 5. Return Gate decision
     return _ok(
         {
             "agent_id": agent_id,

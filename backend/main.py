@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from audit.router import router as audit_router
 
 load_dotenv()
 
@@ -29,7 +30,7 @@ app.include_router(govern_router)
 app.include_router(monitoring_router)
 app.include_router(settings_router)
 app.include_router(webhooks_router)
-
+app.include_router(audit_router)
 
 @app.exception_handler(_AuthError)
 async def legacy_auth_error_handler(request: Request, exc: _AuthError):
