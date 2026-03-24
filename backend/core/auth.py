@@ -70,6 +70,11 @@ def resolve_user_and_org(authorization: str | None) -> dict[str, Any]:
         "role": "owner",
     }
 
+from fastapi import Request
 
-def auth_context(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+def auth_context(request: Request) -> dict[str, Any]:
+    authorization = request.headers.get("authorization")
     return resolve_user_and_org(authorization)
+    
+#def auth_context(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+#    return resolve_user_and_org(authorization)
