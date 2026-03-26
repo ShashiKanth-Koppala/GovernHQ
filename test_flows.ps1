@@ -1,5 +1,5 @@
 # ============================================================
-# GovernHQ - Full Flow Test Script
+# GovernHQ - Full Flow Test Scriptss
 # ============================================================
 # Prerequisites:
 #   1. Backend running:
