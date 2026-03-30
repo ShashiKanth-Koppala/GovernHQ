@@ -6,13 +6,6 @@ GET /monitoring/metrics          — aggregated counts and stats for the org
 GET /monitoring/anomalies        — rows with anomaly metadata
 GET /monitoring/sources          — per-source decision breakdown
 GET /monitoring/chain-integrity  — verify the ledger hash chain
-
-Auth:     Bearer JWT → org_id resolved via core.auth.auth_context
-DB:       core.auth.get_db() singleton — service key, org scoping explicit
-Response: {"data": ..., "error": null, "status": int}
-
-ledger_events columns queried: id, agent_id, action, status, metadata,
-                                created_at, organization_id, action_type, prev_hash
 """
 
 from __future__ import annotations
@@ -31,9 +24,6 @@ _LEDGER = "ledger_events"
 _LEDGER_COLS = "id, agent_id, action, status, metadata, created_at, organization_id, action_type, prev_hash"
 _CHAIN_COLS  = "id, agent_id, action, status, created_at, prev_hash"
 
-# ---------------------------------------------------------------------------
-# Response helpers
-# ---------------------------------------------------------------------------
 
 def _ok(data: Any, status: int = 200) -> JSONResponse:
     return JSONResponse({"data": data, "error": None, "status": status}, status_code=status)
@@ -42,13 +32,6 @@ def _ok(data: Any, status: int = 200) -> JSONResponse:
 def _err(message: str, status: int) -> JSONResponse:
     return JSONResponse({"data": None, "error": message, "status": status}, status_code=status)
 
-
-# ---------------------------------------------------------------------------
-# GET /monitoring/ledger
-# Returns paginated ledger_events for the caller's org, newest first.
-# Optional filters: status, agent_id, action_type.
-# Pagination: limit (max 100) + offset.
-# ---------------------------------------------------------------------------
 
 @router.get("/ledger")
 def get_ledger(
@@ -92,106 +75,46 @@ def get_ledger(
     })
 
 
-# ---------------------------------------------------------------------------
-# GET /monitoring/metrics
-# ---------------------------------------------------------------------------
-# old metrics 
- @router.get("/metrics")
- def get_metrics(ctx: dict = Depends(auth_context)) -> JSONResponse:
-     org_id = ctx["organization_id"]
-     db = get_db()
+@router.get("/metrics")
+def get_metrics(ctx: dict = Depends(auth_context)) -> JSONResponse:
+    org_id = ctx["organization_id"]
+    db = get_db()
 
-     result = (
-         db.table(_LEDGER)
-         .select("status, agent_id, metadata")
-         .eq("organization_id", org_id)
-         .execute()
-     )
-     rows = result.data or []
+    result = (
+        db.table(_LEDGER)
+        .select("status, agent_id, metadata")
+        .eq("organization_id", org_id)
+        .execute()
+    )
+    rows = result.data or []
 
-     total   = len(rows)
-     allowed = sum(1 for r in rows if r.get("status") == "allow")
-     blocked = sum(1 for r in rows if r.get("status") == "block")
-     paused  = sum(1 for r in rows if r.get("status") == "pause")
+    total   = len(rows)
+    allowed = sum(1 for r in rows if r.get("status") == "allow")
+    blocked = sum(1 for r in rows if r.get("status") == "block")
+    paused  = sum(1 for r in rows if r.get("status") == "pause")
 
-     agents_monitored = len({r["agent_id"] for r in rows if r.get("agent_id")})
+    agents_monitored = len({r["agent_id"] for r in rows if r.get("agent_id")})
 
-     gate_ms_values = [
-         r["metadata"]["gate_ms"]
-         for r in rows
-         if isinstance(r.get("metadata"), dict)
-         and r["metadata"].get("gate_ms") is not None
-     ]
-     avg_gate_ms = (
-         round(sum(gate_ms_values) / len(gate_ms_values), 2)
-         if gate_ms_values else None
-     )
+    gate_ms_values = [
+        r["metadata"]["gate_ms"]
+        for r in rows
+        if isinstance(r.get("metadata"), dict)
+        and r["metadata"].get("gate_ms") is not None
+    ]
+    avg_gate_ms = (
+        round(sum(gate_ms_values) / len(gate_ms_values), 2)
+        if gate_ms_values else None
+    )
 
-     return _ok({
-         "total": total,
-         "allowed": allowed,
-         "blocked": blocked,
-         "paused": paused,
-         "agents_monitored": agents_monitored,
-         "avg_gate_ms": avg_gate_ms,
-     })
+    return _ok({
+        "total": total,
+        "allowed": allowed,
+        "blocked": blocked,
+        "paused": paused,
+        "agents_monitored": agents_monitored,
+        "avg_gate_ms": avg_gate_ms,
+    })
 
-# @router.get("/metrics")
-# def get_metrics(ctx: dict = Depends(auth_context)) -> JSONResponse:
-#     db = get_db()
-  
-#     org_id = ctx.get("organization_id") if ctx else None
-
-#     # -------------------------
-#     # 1) AGENTS (current state)
-#     # -------------------------
-#     agents_query = db.table("agents").select("id, status")
-
-#     if org_id and isinstance(org_id, str) and len(org_id) > 0:
-#         agents_query = agents_query.eq("organization_id", org_id)
-
-#     agents = agents_query.execute().data or []
-
-#     total   = len(agents)
-#     allowed = sum(1 for a in agents if a.get("status") in ["allow", "allowed"])
-#     blocked = sum(1 for a in agents if a.get("status") in ["block", "blocked"])
-#     paused  = sum(1 for a in agents if a.get("status") in ["pause", "paused"])
-
-#     # -------------------------
-#     # 2) LEDGER (avg_gate_ms)
-#     # -------------------------
-#     ledger_query = db.table(_LEDGER).select("metadata")
-
-#     if org_id and isinstance(org_id, str) and len(org_id) > 0:
-#         ledger_query = ledger_query.eq("organization_id", org_id)
-
-#     ledger_rows = ledger_query.execute().data or []
-
-#     gate_ms_values = [
-#         r["metadata"]["gate_ms"]
-#         for r in ledger_rows
-#         if isinstance(r.get("metadata"), dict)
-#         and r["metadata"].get("gate_ms") is not None
-#     ]
-
-#     avg_gate_ms = (
-#         round(sum(gate_ms_values) / len(gate_ms_values), 2)
-#         if gate_ms_values else None
-#     )
-
-#     return _ok({
-#         "total": total,
-#         "allowed": allowed,
-#         "blocked": blocked,
-#         "paused": paused,
-#         "agents_monitored": total,
-#         "avg_gate_ms": avg_gate_ms,
-#     })
-
-
-# ---------------------------------------------------------------------------
-# GET /monitoring/anomalies
-# ---------------------------------------------------------------------------
 
 @router.get("/anomalies")
 def get_anomalies(
@@ -221,9 +144,6 @@ def get_anomalies(
 
     return _ok({"rows": page, "total": total, "limit": limit, "offset": offset})
 
-# ---------------------------------------------------------------------------
-# GET /monitoring/sources
-# ---------------------------------------------------------------------------
 
 @router.get("/sources")
 def get_sources(ctx: dict = Depends(auth_context)) -> JSONResponse:
@@ -262,34 +182,6 @@ def get_sources(ctx: dict = Depends(auth_context)) -> JSONResponse:
     return _ok(list(counts.values()))
 
 
-# ---------------------------------------------------------------------------
-# GET /monitoring/chain-integrity
-#
-# Verifies the ledger hash chain for the org.
-#
-# Legacy cutoff: rows with created_at before _LEGACY_CUTOFF are skipped
-# entirely. Migration 000007 set prev_hash on these rows using Postgres string
-# concatenation (no pipe separators, different timestamp format) which does
-# not match Python's hash_row() formula. Verifying them produces false
-# positives. Treat all pre-cutoff rows as legacy — count them but don't verify.
-#
-# For new rows (created_at >= _LEGACY_CUTOFF):
-# - The FIRST new row is accepted as the chain anchor with no verification.
-#   Its prev_hash points into the legacy region and cannot be checked here.
-# - Each SUBSEQUENT new row must have prev_hash == hash_row(previous_new_row).
-#   Any mismatch indicates tampering.
-#
-# Response:
-#   ok            bool     — true if no hash mismatches among new rows
-#   chained_rows  int      — new rows verified (including first anchor)
-#   legacy_rows   int      — pre-cutoff rows skipped
-#   total_rows    int      — all rows for this org
-#   broken_at     str|null — id of first tampered new row, or null
-#   checked_at    str      — ISO timestamp of this check
-# ---------------------------------------------------------------------------
-
-# Rows created before this date used an inconsistent hash formula (no pipe
-# separators, different timestamp format). Only verify rows on or after this date.
 CHAIN_FIX_DATE = "2026-03-23"
 
 
