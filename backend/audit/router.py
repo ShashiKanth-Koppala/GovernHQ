@@ -252,6 +252,8 @@ def review_event(
 
     # Log the human decision as a new ledger entry
     from backend.gate.logging import log_gate_execution
+    # Update the original paused event to the new decision
+    db.table(_TABLE).update({"status": body.action}).eq("id", event_id).execute()
     log_gate_execution(
         agent_id=original["agent_id"],
         intent=original["action"],
