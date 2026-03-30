@@ -96,32 +96,84 @@ def get_ledger(
 # GET /monitoring/metrics
 # ---------------------------------------------------------------------------
 # old metrics 
+ @router.get("/metrics")
+ def get_metrics(ctx: dict = Depends(auth_context)) -> JSONResponse:
+     org_id = ctx["organization_id"]
+     db = get_db()
+
+     result = (
+         db.table(_LEDGER)
+         .select("status, agent_id, metadata")
+         .eq("organization_id", org_id)
+         .execute()
+     )
+     rows = result.data or []
+
+     total   = len(rows)
+     allowed = sum(1 for r in rows if r.get("status") == "allow")
+     blocked = sum(1 for r in rows if r.get("status") == "block")
+     paused  = sum(1 for r in rows if r.get("status") == "pause")
+
+     agents_monitored = len({r["agent_id"] for r in rows if r.get("agent_id")})
+
+     gate_ms_values = [
+         r["metadata"]["gate_ms"]
+         for r in rows
+         if isinstance(r.get("metadata"), dict)
+         and r["metadata"].get("gate_ms") is not None
+     ]
+     avg_gate_ms = (
+         round(sum(gate_ms_values) / len(gate_ms_values), 2)
+         if gate_ms_values else None
+     )
+
+     return _ok({
+         "total": total,
+         "allowed": allowed,
+         "blocked": blocked,
+         "paused": paused,
+         "agents_monitored": agents_monitored,
+         "avg_gate_ms": avg_gate_ms,
+     })
+
 # @router.get("/metrics")
 # def get_metrics(ctx: dict = Depends(auth_context)) -> JSONResponse:
-#     org_id = ctx["organization_id"]
 #     db = get_db()
+  
+#     org_id = ctx.get("organization_id") if ctx else None
 
-#     result = (
-#         db.table(_LEDGER)
-#         .select("status, agent_id, metadata")
-#         .eq("organization_id", org_id)
-#         .execute()
-#     )
-#     rows = result.data or []
+#     # -------------------------
+#     # 1) AGENTS (current state)
+#     # -------------------------
+#     agents_query = db.table("agents").select("id, status")
 
-#     total   = len(rows)
-#     allowed = sum(1 for r in rows if r.get("status") == "allow")
-#     blocked = sum(1 for r in rows if r.get("status") == "block")
-#     paused  = sum(1 for r in rows if r.get("status") == "pause")
+#     if org_id and isinstance(org_id, str) and len(org_id) > 0:
+#         agents_query = agents_query.eq("organization_id", org_id)
 
-#     agents_monitored = len({r["agent_id"] for r in rows if r.get("agent_id")})
+#     agents = agents_query.execute().data or []
+
+#     total   = len(agents)
+#     allowed = sum(1 for a in agents if a.get("status") in ["allow", "allowed"])
+#     blocked = sum(1 for a in agents if a.get("status") in ["block", "blocked"])
+#     paused  = sum(1 for a in agents if a.get("status") in ["pause", "paused"])
+
+#     # -------------------------
+#     # 2) LEDGER (avg_gate_ms)
+#     # -------------------------
+#     ledger_query = db.table(_LEDGER).select("metadata")
+
+#     if org_id and isinstance(org_id, str) and len(org_id) > 0:
+#         ledger_query = ledger_query.eq("organization_id", org_id)
+
+#     ledger_rows = ledger_query.execute().data or []
 
 #     gate_ms_values = [
 #         r["metadata"]["gate_ms"]
-#         for r in rows
+#         for r in ledger_rows
 #         if isinstance(r.get("metadata"), dict)
 #         and r["metadata"].get("gate_ms") is not None
 #     ]
+
 #     avg_gate_ms = (
 #         round(sum(gate_ms_values) / len(gate_ms_values), 2)
 #         if gate_ms_values else None
@@ -132,61 +184,9 @@ def get_ledger(
 #         "allowed": allowed,
 #         "blocked": blocked,
 #         "paused": paused,
-#         "agents_monitored": agents_monitored,
+#         "agents_monitored": total,
 #         "avg_gate_ms": avg_gate_ms,
 #     })
-
-@router.get("/metrics")
-def get_metrics(ctx: dict = Depends(auth_context)) -> JSONResponse:
-    db = get_db()
-  
-    org_id = ctx.get("organization_id") if ctx else None
-
-    # -------------------------
-    # 1) AGENTS (current state)
-    # -------------------------
-    agents_query = db.table("agents").select("id, status")
-
-    if org_id and isinstance(org_id, str) and len(org_id) > 0:
-        agents_query = agents_query.eq("organization_id", org_id)
-
-    agents = agents_query.execute().data or []
-
-    total   = len(agents)
-    allowed = sum(1 for a in agents if a.get("status") in ["allow", "allowed"])
-    blocked = sum(1 for a in agents if a.get("status") in ["block", "blocked"])
-    paused  = sum(1 for a in agents if a.get("status") in ["pause", "paused"])
-
-    # -------------------------
-    # 2) LEDGER (avg_gate_ms)
-    # -------------------------
-    ledger_query = db.table(_LEDGER).select("metadata")
-
-    if org_id and isinstance(org_id, str) and len(org_id) > 0:
-        ledger_query = ledger_query.eq("organization_id", org_id)
-
-    ledger_rows = ledger_query.execute().data or []
-
-    gate_ms_values = [
-        r["metadata"]["gate_ms"]
-        for r in ledger_rows
-        if isinstance(r.get("metadata"), dict)
-        and r["metadata"].get("gate_ms") is not None
-    ]
-
-    avg_gate_ms = (
-        round(sum(gate_ms_values) / len(gate_ms_values), 2)
-        if gate_ms_values else None
-    )
-
-    return _ok({
-        "total": total,
-        "allowed": allowed,
-        "blocked": blocked,
-        "paused": paused,
-        "agents_monitored": total,
-        "avg_gate_ms": avg_gate_ms,
-    })
 
 
 # ---------------------------------------------------------------------------
