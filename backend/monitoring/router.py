@@ -141,35 +141,61 @@ def get_metrics(ctx: dict = Depends(auth_context)) -> JSONResponse:
 # GET /monitoring/anomalies
 # ---------------------------------------------------------------------------
 
-@router.get("/anomalies")
-def get_anomalies(
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-    ctx: dict = Depends(auth_context),
-) -> JSONResponse:
+# @router.get("/anomalies")
+# def get_anomalies(
+#     limit: int = Query(default=20, ge=1, le=100),
+#     offset: int = Query(default=0, ge=0),
+#     ctx: dict = Depends(auth_context),
+# ) -> JSONResponse:
+#     org_id = ctx["organization_id"]
+#     db = get_db()
+
+#     result = (
+#         db.table(_LEDGER)
+#         .select(_LEDGER_COLS)
+#         .eq("organization_id", org_id)
+#         .order("created_at", desc=True)
+#         .execute()
+#     )
+#     all_rows = result.data or []
+
+#     anomaly_rows = [
+#         r for r in all_rows
+#         if isinstance(r.get("metadata"), dict) and r["metadata"].get("anomaly")
+#     ]
+
+#     total = len(anomaly_rows)
+#     page  = anomaly_rows[offset: offset + limit]
+
+#     return _ok({"rows": page, "total": total, "limit": limit, "offset": offset})
+
+@router.get("/metrics")
+def get_metrics(ctx: dict = Depends(auth_context)) -> JSONResponse:
     org_id = ctx["organization_id"]
     db = get_db()
-
+  
     result = (
-        db.table(_LEDGER)
-        .select(_LEDGER_COLS)
+        db.table("agents")
+        .select("id, status")
         .eq("organization_id", org_id)
-        .order("created_at", desc=True)
         .execute()
     )
-    all_rows = result.data or []
 
-    anomaly_rows = [
-        r for r in all_rows
-        if isinstance(r.get("metadata"), dict) and r["metadata"].get("anomaly")
-    ]
+    agents = result.data or []
 
-    total = len(anomaly_rows)
-    page  = anomaly_rows[offset: offset + limit]
+    total   = len(agents)
+    allowed = sum(1 for a in agents if a.get("status") == "allow")
+    blocked = sum(1 for a in agents if a.get("status") == "block")
+    paused  = sum(1 for a in agents if a.get("status") == "pause")
 
-    return _ok({"rows": page, "total": total, "limit": limit, "offset": offset})
-
-
+    return _ok({
+        "total": total,
+        "allowed": allowed,
+        "blocked": blocked,
+        "paused": paused,
+        "agents_monitored": total,
+        "avg_gate_ms": None, 
+    })
 # ---------------------------------------------------------------------------
 # GET /monitoring/sources
 # ---------------------------------------------------------------------------
