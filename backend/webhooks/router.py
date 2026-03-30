@@ -92,16 +92,14 @@ def webhook_inbound(
     )
     gate_result = process_evaluation(govern_payload, org_id=org_id)
 # Added the following below 
-    status = gate_result.decision.lower()
-
+    # Only update metadata, never change agent status based on decision
     db.table("agents").update({
-    "status": status,
-    "metadata": {
-        **current_meta,
-        "last_decision": status,
-        "last_seen": now_iso
-    }
-}).eq("id", agent_id).execute()
+        "metadata": {
+            **current_meta,
+            "last_decision": gate_result.decision,
+            "last_seen": now_iso
+        }
+    }).eq("id", agent_id).execute()
     # Added the following above 
     return _ok({
         "agent_id": agent_id,
