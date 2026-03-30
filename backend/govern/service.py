@@ -156,7 +156,8 @@ def process_evaluation(payload: GovernEvaluateRequest, org_id: str) -> GovernEva
 
     if anomalies:
         db = get_db()
-        db.table("agents").update({"status": "blocked"}).eq("id", payload.agent_id).execute()
+        # Should stop the issue Sami was having
+        #db.table("agents").update({"status": "blocked"}).eq("id", payload.agent_id).execute()
         decision = "block"
         reason = f"Agent auto-blocked by monitor: {anomalies[0]}"
 

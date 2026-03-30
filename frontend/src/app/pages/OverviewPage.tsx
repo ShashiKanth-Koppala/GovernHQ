@@ -12,7 +12,7 @@ export function OverviewPage() {
   const [metrics, setMetrics] = useState({ total: 0, allowed: 0, blocked: 0, paused: 0, agents_monitored: 0 });
 
   const fetchDecisionLog = async (tok: string, agentMap: Record<string, string>) => {
-    const res = await apiGet('/monitoring/ledger?limit=10', tok);
+    const res = await apiGet('/monitoring/ledger?limit=50', tok);
     if (res.data?.rows) {
       const mapped = res.data.rows.map((row: any) => ({
         agent: agentMap[row.agent_id] || row.agent_id?.slice(0, 8) || 'Unknown',
@@ -113,7 +113,7 @@ export function OverviewPage() {
               {decisionLog.length === 0 ? (
                 <p className="text-[#94a3b8] text-[14px]">No decisions yet.</p>
               ) : (
-                <div className="space-y-[20px]">
+                <div className="space-y-[20px] max-h-[600px] overflow-y-auto pr-[8px]">
                   {decisionLog.map((entry, index) => (
                     <div key={index} className="group -mx-4 px-4 py-2 rounded-lg transition-all duration-200 hover:bg-[#1e293b]/30">
                       <div className="flex items-start justify-between gap-4 cursor-pointer" onClick={() => toggleLogItem(index)}>
