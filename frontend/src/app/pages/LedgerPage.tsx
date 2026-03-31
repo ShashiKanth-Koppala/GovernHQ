@@ -59,7 +59,7 @@ export function LedgerPage() {
       if (agentsRes.data) {
         agentsRes.data.forEach((a: any) => { map[a.id] = a.name; });
       }
-      apiGet('/monitoring/ledger?limit=50', tok).then(res => {
+      apiGet('/monitoring/ledger?limit=100', tok).then(res => {
         if (res.data?.rows) {
           const mapped = res.data.rows.map((row: any) => ({
             time: new Date(row.created_at).toLocaleTimeString(),
