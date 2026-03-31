@@ -47,17 +47,13 @@ export default function AuthPage() {
         .then(r => r.json())
         .then(worldJson => {
           echarts.registerMap('world', worldJson)
-
           chart.setOption({
             backgroundColor: '#0a0b14',
             geo: {
               map: 'world',
               roam: false,
               silent: true,
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
+              left: 0, right: 0, top: 0, bottom: 0,
               itemStyle: {
                 areaColor: '#111827',
                 borderColor: '#1e293b',
@@ -84,22 +80,39 @@ export default function AuthPage() {
             ],
           })
         })
-        .catch(() => {
-          chart.setOption({ backgroundColor: '#0a0b14' })
-        })
+        .catch(() => { chart.setOption({ backgroundColor: '#0a0b14' }) })
 
       const handleResize = () => chart?.resize()
       window.addEventListener('resize', handleResize)
     }
 
-    if ((window as any).echarts) {
-      initChart((window as any).echarts)
-    } else {
-      const script = document.createElement('script')
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js'
-      script.onload = () => initChart((window as any).echarts)
-      document.head.appendChild(script)
-    }
+    const loadEcharts = () => {
+  if ((window as any).echarts) {
+    initChart((window as any).echarts)
+    return
+  }
+  // Check if script already exists
+  const existing = document.querySelector('script[src*="echarts"]')
+  if (existing) {
+    // Script exists but may not be loaded yet — poll for it
+    const poll = setInterval(() => {
+      if ((window as any).echarts) {
+        clearInterval(poll)
+        initChart((window as any).echarts)
+      }
+    }, 100)
+    setTimeout(() => clearInterval(poll), 5000)
+    return
+  }
+  const script = document.createElement('script')
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js'
+  script.async = true
+  script.onload = () => initChart((window as any).echarts)
+  script.onerror = () => console.warn('ECharts failed to load')
+  document.head.appendChild(script)
+}
+
+loadEcharts()
 
     return () => { chart?.dispose() }
   }, [])
@@ -114,42 +127,37 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-center p-4 overflow-hidden">
-      {/* Full screen world map background */}
+      {/* World map background */}
       <div ref={chartRef} className="absolute inset-0 w-full h-full" />
 
-      {/* Overlay gradient */}
+      {/* Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#0a0b14]/50 via-transparent to-[#0a0b14]/70 pointer-events-none" />
 
-      {/* Content — centered on screen */}
+      {/* Content */}
       <div className="relative z-10 flex flex-col items-center w-full max-w-md">
 
-        {/* Animated GovernHQ heading */}
-        <div className="mb-[8px] text-center">
-          <h1
-            className="text-[64px] font-bold tracking-tight text-transparent"
-            style={{
-              WebkitTextStroke: '1.5px #3b82f6',
-              animation: 'governFill 3s ease-in-out infinite',
-            }}
-          >
-            GovernHQ
-          </h1>
-          <style>{`
-            @keyframes governFill {
-              0%   { color: transparent; -webkit-text-fill-color: transparent; }
-              70%  { color: transparent; -webkit-text-fill-color: transparent; }
-              85%  { color: transparent; -webkit-text-fill-color: transparent; }
-              100% { color: #3b82f6;    -webkit-text-fill-color: #3b82f6; }
-            }
-          `}</style>
-        </div>
+        {/* Big GovernHQ heading */}
+        <h1
+          className="text-[88px] font-bold tracking-tight mb-[40px]"
+          style={{
+            WebkitTextStroke: '1.5px #3b82f6',
+            color: 'transparent',
+            animation: 'governFill 3s ease-in-out infinite',
+          }}
+        >
+          GovernHQ
+        </h1>
 
-        {/* Subtitle */}
-        <p className="text-[#64748b] text-[16px] text-center mb-[40px]">
-          Govern, monitor, and control your AI agents
-        </p>
+        <style>{`
+          @keyframes governFill {
+            0%   { color: transparent; -webkit-text-fill-color: transparent; }
+            70%  { color: transparent; -webkit-text-fill-color: transparent; }
+            85%  { color: transparent; -webkit-text-fill-color: transparent; }
+            100% { color: #3b82f6; -webkit-text-fill-color: #3b82f6; }
+          }
+        `}</style>
 
-        {/* Login form card */}
+        {/* Login form card — Welcome and subtitle are INSIDE the Login component already */}
         <div className="w-full bg-[#0f172a]/85 backdrop-blur-xl border border-[#1e293b]/60 rounded-[20px] p-[32px] shadow-[0_0_60px_rgba(0,0,0,0.5)]">
           {step === "login" && (
             <Login onSignupClick={() => setStep("signup")} />
