@@ -5,13 +5,11 @@ import { apiGet, apiPatch } from "@/lib/api";
 
 export function ShieldPage() {
   const { token, isLoading } = useAuth();
-  const [enforcementMode, setEnforcementMode] = useState('Strict');
-  const [riskThreshold, setRiskThreshold] = useState(70);
-  const [anomalySensitivity, setAnomalySensitivity] = useState(75);
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [biometricJustification, setBiometricJustification] = useState('');
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
   const [blockedAgents, setBlockedAgents] = useState<any[]>([]);
+  const [showRightSidebar, setShowRightSidebar] = useState(true);
   const [metrics, setMetrics] = useState<any>({
     reasoning_evaluated: 0,
     gate_blocked: 0,
@@ -20,8 +18,6 @@ export function ShieldPage() {
     avg_block_latency_ms: null,
     blocked_agents: 0,
   });
-  const [showProtectionControls, setShowProtectionControls] = useState(false);
-  const [showRightSidebar, setShowRightSidebar] = useState(true);
 
   useEffect(() => {
     if (!token || isLoading) return;
@@ -31,11 +27,11 @@ export function ShieldPage() {
         const blocked = res.data.filter((a: any) => a.status === 'blocked').map((a: any) => ({
           id: a.id,
           name: a.name,
-          reason: a.blocked_reason ? `"${a.blocked_reason}"` : '"Agent blocked"',
+          reason: a.blocked_reason ? `"${a.blocked_reason}"` : '"Anomaly threshold exceeded"',
           blockedBy: a.metadata?.blocked_by || 'Monitor',
+          trustScore: a.metadata?.trust_score || null,
           time: new Date(a.created_at || Date.now()).toLocaleTimeString(),
           details: `Risk profile: ${a.risk_profile}. Source: ${a.source}.`,
-          secondaryInfo: 'Agent cannot reason or act until re-allowed.',
           canReAllow: true,
         }));
         setBlockedAgents(blocked);
@@ -74,7 +70,6 @@ export function ShieldPage() {
         blockedBy: 'Human',
         time: new Date().toLocaleTimeString(),
         details: `Risk profile: ${a.risk_profile}. Source: ${a.source}.`,
-        secondaryInfo: 'Blocked via emergency stop.',
         canReAllow: true,
       })));
     }
@@ -93,7 +88,7 @@ export function ShieldPage() {
               {!showRightSidebar && (
                 <button onClick={() => setShowRightSidebar(true)}
                   className="bg-[#1e293b]/50 border border-[#334155]/30 hover:border-[#3b82f6]/50 text-[#94a3b8] hover:text-white text-[13px] font-semibold px-[16px] py-[8px] rounded-[8px] transition-all">
-                  Show Controls
+                  Show Info
                 </button>
               )}
             </div>
@@ -143,7 +138,7 @@ export function ShieldPage() {
 
             {/* Blocked Agents List */}
             <div>
-              <h3 className="font-bold text-white text-[16px] mb-[16px]">Blocked Agents</h3>
+              <h3 className="font-bold text-white text-[16px] mb-[4px]">BLOCKED AGENTS</h3>
               <p className="text-[#64748b] text-[13px] mb-[20px]">Agents blocked entirely. Cannot reason or act until re-allowed.</p>
 
               {blockedAgents.length === 0 ? (
@@ -171,17 +166,13 @@ export function ShieldPage() {
                       </div>
                       {expandedAgent === agent.name && (
                         <div className="px-[18px] pb-[18px] border-t border-[#334155]/30">
-                          <div className="mt-[16px] space-y-[12px]">
-                            <p className="text-[#94a3b8] text-[13px]">Blocked by: {agent.blockedBy}</p>
-                            <p className="text-[#94a3b8] text-[13px]">{agent.details}</p>
-                            <p className="text-[#94a3b8] text-[13px]">{agent.secondaryInfo}</p>
-                            <p className="italic text-[#64748b] text-[12px] mt-[8px]">Agent cannot reason or act until re-allowed.</p>
-                            {agent.canReAllow && (
-                              <button onClick={() => handleAllowAgent(agent.id)}
-                                className="mt-[16px] bg-[#10b981]/20 hover:bg-[#10b981]/30 border border-[#10b981] text-[#10b981] font-semibold text-[14px] px-[20px] py-[10px] rounded-[8px] transition-all">
-                                Allow Agent
-                              </button>
+                          <div className="mt-[16px] space-y-[8px]">
+                            <p className="text-[#94a3b8] text-[13px]">Blocked by: <span className="text-white font-semibold">{agent.blockedBy}</span></p>
+                            {agent.trustScore && (
+                              <p className="text-[#94a3b8] text-[13px]">Trust score dropped to <span className="text-[#ef4444] font-semibold">{agent.trustScore}</span>.</p>
                             )}
+                            <p className="text-[#94a3b8] text-[13px]">Repeated anomalous reasoning pattern detected.</p>
+                            <p className="italic text-[#64748b] text-[12px] mt-[8px]">Agent cannot reason or act until re-allowed.</p>
                           </div>
                         </div>
                       )}
@@ -199,56 +190,15 @@ export function ShieldPage() {
             <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-[#3b82f6]/10 blur-[120px] rounded-full pointer-events-none" />
             <div className="space-y-[32px] relative z-10">
 
-              {/* Close button for entire right sidebar */}
+              {/* Close button */}
               <div className="flex items-center justify-between">
-                <p className="text-[#94a3b8] text-[12px] uppercase tracking-wide">Controls & Info</p>
+                <p className="text-[#94a3b8] text-[12px] uppercase tracking-wide">Defense Layers</p>
                 <button onClick={() => setShowRightSidebar(false)}
                   className="size-[32px] rounded-[8px] border border-[#334155]/50 hover:border-[#ef4444]/50 transition-all flex items-center justify-center group">
                   <svg className="size-[16px]" fill="none" viewBox="0 0 16 16">
                     <path d="M12 4L4 12M4 4L12 12" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
-              </div>
-
-              {/* Protection Controls */}
-              <div className="bg-gradient-to-br from-[#1e293b]/60 to-[#0f172a]/40 border border-[rgba(51,65,85,0.4)] rounded-[16px] p-[24px]">
-                <div className="flex items-center justify-between mb-[24px]">
-                  <h2 className="text-[#94a3b8] text-[12px] uppercase tracking-wide">Protection Controls</h2>
-                  <button onClick={() => setShowProtectionControls(true)} className="size-[24px] rounded-[6px] border border-[#334155]/50 hover:border-[#3b82f6]/50 transition-all flex items-center justify-center">
-                    <svg className="size-[12px]" fill="none" viewBox="0 0 16 16">
-                      <path d="M4 8h8M8 4v8" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="space-y-[20px]">
-                  <div>
-                    <label className="font-semibold text-white text-[14px] mb-[8px] block">Enforcement Mode</label>
-                    <select value={enforcementMode} onChange={(e) => setEnforcementMode(e.target.value)}
-                      className="w-full bg-[#0f172a]/50 border border-[#334155]/50 rounded-[8px] px-[12px] py-[10px] text-white text-[14px] focus:outline-none appearance-none cursor-pointer">
-                      <option>Strict</option>
-                      <option>Monitor</option>
-                      <option>Audit</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="font-semibold text-white text-[14px] mb-[8px] block">
-                      Risk Threshold <span className="text-[#f59e0b] ml-[8px] font-bold">{riskThreshold}%</span>
-                    </label>
-                    <input type="range" min="0" max="100" value={riskThreshold}
-                      onChange={(e) => setRiskThreshold(Number(e.target.value))}
-                      className="w-full h-[4px] rounded-full appearance-none cursor-pointer"
-                      style={{ background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${riskThreshold}%, #334155 ${riskThreshold}%, #334155 100%)` }} />
-                  </div>
-                  <div>
-                    <label className="font-semibold text-white text-[14px] mb-[8px] block">
-                      Anomaly Sensitivity <span className="text-[#ef4444] ml-[8px] font-bold">{anomalySensitivity}%</span>
-                    </label>
-                    <input type="range" min="0" max="100" value={anomalySensitivity}
-                      onChange={(e) => setAnomalySensitivity(Number(e.target.value))}
-                      className="w-full h-[4px] rounded-full appearance-none cursor-pointer"
-                      style={{ background: `linear-gradient(to right, #ef4444 0%, #ef4444 ${anomalySensitivity}%, #334155 ${anomalySensitivity}%, #334155 100%)` }} />
-                  </div>
-                </div>
               </div>
 
               {/* How GovernHQ Protects */}
@@ -283,57 +233,6 @@ export function ShieldPage() {
           </div>
         )}
       </div>
-
-      {/* Protection Controls Modal */}
-      {showProtectionControls && (
-        <>
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={() => setShowProtectionControls(false)} />
-          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] bg-gradient-to-br from-[#1e293b]/95 to-[#0f172a]/90 border border-[#334155]/50 shadow-[0_0_50px_rgba(0,0,0,0.5)] backdrop-blur-xl rounded-[16px] p-[32px] z-50">
-            <div className="flex items-center justify-between mb-[8px]">
-              <h3 className="font-bold text-white text-[20px]">Protection Controls</h3>
-              <button onClick={() => setShowProtectionControls(false)} className="size-[32px] rounded-[8px] border border-[#334155]/50 hover:border-[#ef4444]/50 transition-all flex items-center justify-center">
-                <svg className="size-[16px]" fill="none" viewBox="0 0 16 16">
-                  <path d="M12 4L4 12M4 4L12 12" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-[#64748b] text-[13px] mb-[24px]">Adjust protection settings for your organization.</p>
-            <div className="space-y-[20px]">
-              <div>
-                <label className="font-semibold text-white text-[14px] mb-[8px] block">Enforcement Mode</label>
-                <select value={enforcementMode} onChange={(e) => setEnforcementMode(e.target.value)}
-                  className="w-full bg-[#0f172a]/50 border border-[#334155]/50 rounded-[8px] px-[12px] py-[10px] text-white text-[14px] focus:outline-none appearance-none cursor-pointer">
-                  <option>Strict</option>
-                  <option>Monitor</option>
-                  <option>Audit</option>
-                </select>
-              </div>
-              <div>
-                <label className="font-semibold text-white text-[14px] mb-[8px] block">
-                  Risk Threshold <span className="text-[#f59e0b] ml-[8px] font-bold">{riskThreshold}%</span>
-                </label>
-                <input type="range" min="0" max="100" value={riskThreshold}
-                  onChange={(e) => setRiskThreshold(Number(e.target.value))}
-                  className="w-full h-[4px] rounded-full appearance-none cursor-pointer"
-                  style={{ background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${riskThreshold}%, #334155 ${riskThreshold}%, #334155 100%)` }} />
-              </div>
-              <div>
-                <label className="font-semibold text-white text-[14px] mb-[8px] block">
-                  Anomaly Sensitivity <span className="text-[#ef4444] ml-[8px] font-bold">{anomalySensitivity}%</span>
-                </label>
-                <input type="range" min="0" max="100" value={anomalySensitivity}
-                  onChange={(e) => setAnomalySensitivity(Number(e.target.value))}
-                  className="w-full h-[4px] rounded-full appearance-none cursor-pointer"
-                  style={{ background: `linear-gradient(to right, #ef4444 0%, #ef4444 ${anomalySensitivity}%, #334155 ${anomalySensitivity}%, #334155 100%)` }} />
-              </div>
-              <button onClick={() => setShowProtectionControls(false)}
-                className="w-full bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-bold text-[14px] px-[24px] py-[12px] rounded-[8px] transition-all">
-                Save & Close
-              </button>
-            </div>
-          </div>
-        </>
-      )}
 
       {/* Biometric Modal */}
       {showBiometricModal && (
