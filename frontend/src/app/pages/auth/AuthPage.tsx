@@ -32,13 +32,12 @@ export default function AuthPage() {
 
       chart = echarts.init(chartRef.current, null, { renderer: 'canvas' })
 
-      // Generate random scatter points across the world
       const generatePoints = (count: number) => {
         const points = []
         for (let i = 0; i < count; i++) {
           points.push([
-            Math.random() * 360 - 180, // longitude
-            Math.random() * 170 - 85,  // latitude
+            Math.random() * 360 - 180,
+            Math.random() * 170 - 85,
           ])
         }
         return points
@@ -51,59 +50,6 @@ export default function AuthPage() {
 
           chart.setOption({
             backgroundColor: '#0a0b14',
-            graphic: {
-              elements: [
-                {
-                  type: 'text',
-                  left: 'center',
-                  top: '38%',
-                  style: {
-                    text: 'GovernHQ',
-                    fontSize: 64,
-                    fontWeight: 'bold',
-                    fontFamily: 'Mulish, sans-serif',
-                    lineDash: [0, 200],
-                    lineDashOffset: 0,
-                    fill: 'transparent',
-                    stroke: '#3b82f6',
-                    lineWidth: 1.5,
-                  },
-                  keyframeAnimation: {
-                    duration: 3000,
-                    loop: true,
-                    keyframes: [
-                      {
-                        percent: 0.7,
-                        style: {
-                          fill: 'transparent',
-                          lineDashOffset: 200,
-                          lineDash: [200, 0],
-                        },
-                      },
-                      {
-                        percent: 0.8,
-                        style: { fill: 'transparent' },
-                      },
-                      {
-                        percent: 1,
-                        style: { fill: '#3b82f6' },
-                      },
-                    ],
-                  },
-                },
-                {
-                  type: 'text',
-                  left: 'center',
-                  top: '52%',
-                  style: {
-                    text: 'Govern, monitor, and control your AI agents',
-                    fontSize: 16,
-                    fontFamily: 'Mulish, sans-serif',
-                    fill: '#64748b',
-                  },
-                },
-              ],
-            },
             geo: {
               map: 'world',
               roam: false,
@@ -117,9 +63,7 @@ export default function AuthPage() {
                 borderColor: '#1e293b',
                 borderWidth: 0.5,
               },
-              emphasis: {
-                disabled: true,
-              },
+              emphasis: { disabled: true },
             },
             series: [
               {
@@ -127,71 +71,27 @@ export default function AuthPage() {
                 coordinateSystem: 'geo',
                 data: generatePoints(300),
                 symbolSize: 2,
-                itemStyle: {
-                  color: '#3b82f6',
-                  opacity: 0.4,
-                },
-                animation: true,
-                animationDuration: 3000,
+                itemStyle: { color: '#3b82f6', opacity: 0.4 },
               },
               {
                 type: 'effectScatter',
                 coordinateSystem: 'geo',
                 data: generatePoints(15),
                 symbolSize: 4,
-                rippleEffect: {
-                  period: 3,
-                  scale: 4,
-                  brushType: 'stroke',
-                },
-                itemStyle: {
-                  color: '#10b981',
-                  opacity: 0.8,
-                },
+                rippleEffect: { period: 3, scale: 4, brushType: 'stroke' },
+                itemStyle: { color: '#10b981', opacity: 0.8 },
               },
             ],
           })
         })
         .catch(() => {
-          // Fallback without map
-          chart.setOption({
-            backgroundColor: '#0a0b14',
-            graphic: {
-              elements: [
-                {
-                  type: 'text',
-                  left: 'center',
-                  top: 'center',
-                  style: {
-                    text: 'GovernHQ',
-                    fontSize: 64,
-                    fontWeight: 'bold',
-                    lineDash: [0, 200],
-                    lineDashOffset: 0,
-                    fill: 'transparent',
-                    stroke: '#3b82f6',
-                    lineWidth: 1.5,
-                  },
-                  keyframeAnimation: {
-                    duration: 3000,
-                    loop: true,
-                    keyframes: [
-                      { percent: 0.7, style: { fill: 'transparent', lineDashOffset: 200, lineDash: [200, 0] } },
-                      { percent: 0.8, style: { fill: 'transparent' } },
-                      { percent: 1, style: { fill: '#3b82f6' } },
-                    ],
-                  },
-                },
-              ],
-            },
-          })
+          chart.setOption({ backgroundColor: '#0a0b14' })
         })
 
       const handleResize = () => chart?.resize()
       window.addEventListener('resize', handleResize)
     }
 
-    // Load ECharts from CDN
     if ((window as any).echarts) {
       initChart((window as any).echarts)
     } else {
@@ -201,9 +101,7 @@ export default function AuthPage() {
       document.head.appendChild(script)
     }
 
-    return () => {
-      chart?.dispose()
-    }
+    return () => { chart?.dispose() }
   }, [])
 
   if (isLoading) {
@@ -219,12 +117,40 @@ export default function AuthPage() {
       {/* Full screen world map background */}
       <div ref={chartRef} className="absolute inset-0 w-full h-full" />
 
-      {/* Overlay gradient to darken edges */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0b14]/40 via-transparent to-[#0a0b14]/60 pointer-events-none" />
+      {/* Overlay gradient */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0b14]/50 via-transparent to-[#0a0b14]/70 pointer-events-none" />
 
-      {/* Login form card */}
-      <div className="relative z-10 mt-[240px] w-full max-w-md">
-        <div className="bg-[#0f172a]/80 backdrop-blur-xl border border-[#1e293b]/60 rounded-[20px] p-[32px] shadow-[0_0_60px_rgba(0,0,0,0.5)]">
+      {/* Content — centered on screen */}
+      <div className="relative z-10 flex flex-col items-center w-full max-w-md">
+
+        {/* Animated GovernHQ heading */}
+        <div className="mb-[8px] text-center">
+          <h1
+            className="text-[64px] font-bold tracking-tight text-transparent"
+            style={{
+              WebkitTextStroke: '1.5px #3b82f6',
+              animation: 'governFill 3s ease-in-out infinite',
+            }}
+          >
+            GovernHQ
+          </h1>
+          <style>{`
+            @keyframes governFill {
+              0%   { color: transparent; -webkit-text-fill-color: transparent; }
+              70%  { color: transparent; -webkit-text-fill-color: transparent; }
+              85%  { color: transparent; -webkit-text-fill-color: transparent; }
+              100% { color: #3b82f6;    -webkit-text-fill-color: #3b82f6; }
+            }
+          `}</style>
+        </div>
+
+        {/* Subtitle */}
+        <p className="text-[#64748b] text-[16px] text-center mb-[40px]">
+          Govern, monitor, and control your AI agents
+        </p>
+
+        {/* Login form card */}
+        <div className="w-full bg-[#0f172a]/85 backdrop-blur-xl border border-[#1e293b]/60 rounded-[20px] p-[32px] shadow-[0_0_60px_rgba(0,0,0,0.5)]">
           {step === "login" && (
             <Login onSignupClick={() => setStep("signup")} />
           )}
