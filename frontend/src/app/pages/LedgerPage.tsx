@@ -16,11 +16,15 @@ export function LedgerPage() {
   const [chainStatus, setChainStatus] = useState<{valid: boolean, total: number} | null>(null);
   const [agentNames, setAgentNames] = useState<Record<string, string>>({});
   const [showAnalytics, setShowAnalytics] = useState(true);
+  const [metricsData, setMetricsData] = useState({ allowed: 0, blocked: 0, paused: 0 });
 
   useEffect(() => {
     if (!token || isLoading) return;
 
-    // Fetch agents first for name lookup, then ledger
+    apiGet('/monitoring/metrics', token).then(res => {
+      if (res.data) setMetricsData(res.data);
+    });
+
     apiGet('/agents', token).then(agentsRes => {
       const map: Record<string, string> = {};
       if (agentsRes.data) {
@@ -28,7 +32,7 @@ export function LedgerPage() {
         setAgentNames(map);
       }
 
-      apiGet('/monitoring/ledger?limit=50', token).then(res => {
+      apiGet('/monitoring/ledger?limit=100', token).then(res => {
         if (res.data?.rows) {
           const mapped = res.data.rows.map((row: any) => ({
             time: new Date(row.created_at).toLocaleTimeString(),
@@ -54,6 +58,9 @@ export function LedgerPage() {
   }, [token, isLoading]);
 
   const fetchEntries = (tok: string) => {
+    apiGet('/monitoring/metrics', tok).then(res => {
+      if (res.data) setMetricsData(res.data);
+    });
     apiGet('/agents', tok).then(agentsRes => {
       const map: Record<string, string> = {};
       if (agentsRes.data) {
@@ -145,7 +152,6 @@ export function LedgerPage() {
             </div>
 
             <div className="flex items-center gap-[12px]">
-              {/* Agent Dropdown */}
               <div className="relative z-30">
                 <button onClick={() => { setShowAgentDropdown(!showAgentDropdown); setShowStatusDropdown(false); }}
                   className="bg-[#0f172a]/50 border border-[#334155]/50 hover:border-[#3b82f6]/50 rounded-[8px] px-[16px] py-[10px] flex items-center gap-[8px] transition-all">
@@ -163,7 +169,6 @@ export function LedgerPage() {
                 )}
               </div>
 
-              {/* Status Dropdown */}
               <div className="relative z-30">
                 <button onClick={() => { setShowStatusDropdown(!showStatusDropdown); setShowAgentDropdown(false); }}
                   className="bg-[#0f172a]/50 border border-[#334155]/50 hover:border-[#3b82f6]/50 rounded-[8px] px-[16px] py-[10px] flex items-center gap-[8px] transition-all">
@@ -310,15 +315,15 @@ export function LedgerPage() {
           <div className="space-y-[16px]">
             <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] p-[20px]">
               <p className="text-[#94a3b8] text-[14px] mb-[4px]">Allowed</p>
-              <p className="text-[#10b981] text-[28px] font-bold">{allEntries.filter(e => e.status === 'green').length}</p>
+              <p className="text-[#10b981] text-[28px] font-bold">{metricsData.allowed}</p>
             </div>
             <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] p-[20px]">
               <p className="text-[#94a3b8] text-[14px] mb-[4px]">Blocked</p>
-              <p className="text-[#ef4444] text-[28px] font-bold">{allEntries.filter(e => e.status === 'red').length}</p>
+              <p className="text-[#ef4444] text-[28px] font-bold">{metricsData.blocked}</p>
             </div>
             <div className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 border border-[#334155]/30 rounded-[16px] p-[20px]">
               <p className="text-[#94a3b8] text-[14px] mb-[4px]">Paused</p>
-              <p className="text-[#f59e0b] text-[28px] font-bold">{allEntries.filter(e => e.status === 'orange').length}</p>
+              <p className="text-[#f59e0b] text-[28px] font-bold">{metricsData.paused}</p>
             </div>
 
             {/* Chain Status Card */}
